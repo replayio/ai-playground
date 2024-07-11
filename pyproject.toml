@@ -1,0 +1,35 @@
+[project]
+name = "ai-playground"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "D. Seifert", email = "Domiii@users.noreply.github.com" }
+]
+dependencies = [
+    "openai>=1.35.13",
+    "python-dotenv>=1.0.1",
+    "langchain>=0.2.7",
+    "langchain-community>=0.2.7",
+    "langchain-core>=0.2.13",
+    "langgraph>=0.1.7",
+    "unstructured>=0.14.10",
+    "langchain-openai>=0.1.15",
+    "faiss-cpu>=1.8.0.post1",
+    "tiktoken>=0.7.0",
+]
+readme = "README.md"
+requires-python = ">= 3.8"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = []
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ai_playground"]
