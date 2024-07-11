@@ -38,10 +38,12 @@ def load_index():
   # Create loader.
   loader = DirectoryLoader(local_dir, glob)
 
-  # Create vector store
+  # Create vector store for RAG.
   documents = loader.load()
   embeddings = OpenAIEmbeddings()
-  # TODO: get a better model.
+
+  # TODO: get a better model. FAISS seems pretty bad, but fast.
+
   # store =
   index_creator = VectorstoreIndexCreator(vectorstore_cls=FAISS, embedding=embeddings)
   index = index_creator.from_documents(documents)
@@ -52,11 +54,15 @@ def load_index():
 
 # Main function
 def main():
-  # store, index = load_local_index()
+  # Hardcoded query:  
+  input = "What is AI?"
+  # TODO: We need better local models before we can ask these types of questions.
+  # input = "What libraries does devtools use?"
+
+  # Init.
+  # store, index = load_index()
   index = load_index()
   llm = ChatOpenAI(model=Model, temperature=0, max_tokens=MaxTokens)
-  input = "What is AI?"
-  # input = "What libraries does devtools use?"
 
   # TODO: Instead of estimating, hook into the actual query to get the exact number of tokens spent.
   # NOTE: Monitor your API tokens + activity here - https://platform.openai.com/usage
