@@ -1,6 +1,10 @@
 # Secrets
 *.secret*
 
+
+# Our own stuff
+artifacts
+
 # Python
 *.pyc
 *.pyo
