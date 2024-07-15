@@ -26,9 +26,6 @@ if not OPENAI_API_KEY or not ANTHROPIC_API_KEY:
     )
 
 
-target_dir = os.path.dirname(os.path.abspath(__file__))
-
-
 class Agent:
     name: AgentName
     names: List[str]
