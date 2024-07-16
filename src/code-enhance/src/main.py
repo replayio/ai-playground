@@ -1,29 +1,31 @@
 import os
 from typing import List
-from dotenv import load_dotenv
-from openai import OpenAI
 from anthropic import Anthropic
-# from pprint import pprint
 from tools import (
     AgentName,
     handle_claude_tool_call,
-    openai_tools,
     claude_tools,
     copy_src,
+    src_dir,
+    artifacts_dir,
+    ask_user,
+    show_diff
 )
+from pprint import pprint
+from config import OPENAI_API_KEY, ANTHROPIC_API_KEY, MAX_TOKENS
 
-# Load environment variables from .env and .secret.env
-load_dotenv()
-load_dotenv(".env.secret")
 
-# Load API keys
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+# Prompt Design
+SYSTEM_PROMPT = """
+1. Your max_tokens are {MAX_TOKENS}. If any assistant message might exceed the token limit, don't try and respond negatively with an explanation instead.
+2. Prefix negative responses with "❌". Prefix responses that indicate a significant success with "✅". Don't prefix neutral responses.
+3. Use tools only if necessary.
+4. Prefer using replace_in_file over write_file.
+5. Don't make white-space-only changes to files.
+6. If you have low confidence in a response or don't understand an instruction, explain why and use the ask_user tool to gather clarifications.
+"""
 
-if not OPENAI_API_KEY or not ANTHROPIC_API_KEY:
-    raise ValueError(
-        "API keys not found. Please check your .env and .secret.env files."
-    )
+# Agents
 
 
 class Agent:
@@ -37,42 +39,11 @@ class Agent:
         raise NotImplementedError("Subclasses must implement run_prompt method")
 
     def imbue_prompt(self, query: str) -> str:
+        # These are all files: {self.names}. Only if you need to, read or write them with tools. Don't explain your actions.
         return f"""
-These are all files: {self.names}. Only if you need to, read or write them with tools. Don't explain your actions.
+These are all files: {self.names}.
 Query: {query}
     """.strip()
-
-
-class OpenAIAgent(Agent):
-    name = AgentName.Openai
-
-    def __init__(self) -> None:
-        self.client = OpenAI(api_key=OPENAI_API_KEY)
-
-    def run_prompt(self, prompt: str) -> str:
-        messages = [{"role": "user", "content": prompt}]
-
-        while True:
-            try:
-                response = self.client.chat.completions.create(
-                    model="gpt-4-0125-preview",
-                    messages=messages,
-                    tools=openai_tools,
-                    tool_choice="auto",
-                )
-
-                response_message = response.choices[0].message
-                messages.append(response_message)
-
-                if response_message.tool_calls:
-                    tool_responses = handle_claude_tool_call(
-                        response_message.tool_calls
-                    )
-                    messages.extend(tool_responses)
-                else:
-                    return response_message.content
-            except Exception as e:
-                return f"Error: {str(e)}"
 
 
 class ClaudeAgent(Agent):
@@ -84,28 +55,27 @@ class ClaudeAgent(Agent):
 
     def run_prompt(self, prompt: str) -> str:
         prompt = prompt.strip()
-        print(f"Q: \"{prompt}\"")
+        print(f'Q: "{prompt}"')
         prompt = self.imbue_prompt(prompt)
         messages = [{"role": "user", "content": prompt}]
 
         more = True
         had_any_text = False
+        modified_files = set()
         while more:
-            # print("Sending messages:")
-            # pprint(messages)
             response = self.client.messages.create(
                 temperature=0,
-                model="claude-3-sonnet-20240229",
-                max_tokens=1000,
+                system=SYSTEM_PROMPT,
+                model="claude-3-5-sonnet-20240620",
+                max_tokens=MAX_TOKENS,
                 messages=messages,
                 tools=claude_tools,
+                extra_headers={"anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"},
             )
             assistant_messages = []
             user_messages = []
 
             for response_message in response.content:
-                # print("RESPONSE:")
-                # pprint(response_message)
                 assistant_messages.append(response_message)
 
                 if response_message.type == "tool_use":
@@ -115,6 +85,7 @@ class ClaudeAgent(Agent):
                             response_message.id,
                             response_message.name,
                             response_message.input,
+                            modified_files,
                         )
                     )
                 elif response_message.type == "text":
@@ -140,6 +111,27 @@ class ClaudeAgent(Agent):
         if not had_any_text:
             print("Done.")
 
+        if modified_files:
+            print(f"Modified files: {', '.join(modified_files)}")
+            for file in modified_files:
+                original_file = os.path.join(src_dir, file)
+                modified_file = os.path.join(artifacts_dir, file)
+                diff = show_diff(original_file, modified_file)
+                print(f"Diff for {file}:")
+                print(diff)
+
+                apply_changes = ask_user(
+                    f"Do you want to apply the changes to {file}? (Y/n): "
+                ).lower()
+                if apply_changes == "Y" or apply_changes == "":
+                    with open(modified_file, "r") as modified:
+                        content = modified.read()
+                    with open(original_file, "w") as original:
+                        original.write(content)
+                    print(f"✅ Changes applied to {file}")
+                else:
+                    print(f"❌ Changes not applied to {file}")
+
 
 def main() -> None:
     print("Initializing...")
@@ -149,18 +141,29 @@ def main() -> None:
     # names = []
 
     print("Go...\n")
-    prompt = "Briefly summarize the contents of main.py."
+
+    prompt = "Modify "
+
+    # prompt = "What is the end index of tools.py? Is the end index of tools.py different from its length? Also print the numerical confidence you have in your answer."
+    # prompt = "What are the last 100 characters of tools.py?"
+
+    # prompt = "Append a hello_world function to the end of tools.py"
+    # prompt = "What is your max_tokens setting?"
+    # prompt = "Modify tools.py: Add an ask_user tool. The tool should use stdio to ask the user. The user's input is returned to the assistant."
+    # prompt = "Modify tools.py: Modify the write_file tool: 1. rename write_file to edit_file. 2. take optional start and end parameters that replace the characters between start and end with the provided new content."
+    # prompt = "Modify test.py: Add a snake program into it using pygame"
+    # prompt = "If you had to modify tools.py, what parameters would you pass to the write_file tool?"
     claude_agent.run_prompt(prompt)
 
-    print("\n\n")
+    # print("\n\n")
 
-    prompt = "Write a hello world program into main.py."
-    claude_agent.run_prompt(prompt)
+    # prompt = "Write a hello world program into main.py."
+    # claude_agent.run_prompt(prompt)
 
-    print("\n\n")
+    # print("\n\n")
 
-    prompt = "Summarize the contents of main.py."
-    claude_agent.run_prompt(prompt)
+    # prompt = "Summarize the contents of main.py."
+    # claude_agent.run_prompt(prompt)
 
 
 if __name__ == "__main__":

@@ -1,13 +1,12 @@
-1. [TODO](#todo)
-2. [Start coding for the day](#start-coding-for-the-day)
-3. [Setup](#setup)
+- [TODO](#todo)
+- [Start coding for the day](#start-coding-for-the-day)
+- [Setup](#setup)
 
 
 # TODO
 
 * Try some local/offline models:
-  * e.g. `ollama`
-  * e.g. `fabric --listmodels`
+  * e.g. `ollama run codellama:70b`
 * NOTE: RAG (Retrieval-Augmented Generation) or any proper local/offline models will need a GPU and/or a powerful setup. We'll have to investigate that.
 
 
