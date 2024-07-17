@@ -206,6 +206,17 @@ claude_tools: List[Dict[str, Any]] = [
             "required": ["old_name", "new_name"],
         },
     },
+    {
+        "name": "delete_file",
+        "description": "Delete a file",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Name of the file to delete."},
+            },
+            "required": ["name"],
+        },
+    },
 ]
 
 
@@ -236,7 +247,14 @@ def rename_file(old_name: str, new_name: str, agent: AgentName) -> str:
         raise FileExistsError(f"The file {new_name} already exists.")
     
     os.rename(old_path, new_path)
-    return f"File successfully renamed from {old_name} to {new_name}."
+
+def delete_file(name: str, agent: AgentName) -> str:
+    file_path = make_file_path(name, agent)
+    
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"The file {name} does not exist.")
+    
+    os.remove(file_path)
 
 def handle_claude_tool_call(
     agent: AgentName,
@@ -263,7 +281,7 @@ def handle_claude_tool_call(
         elif function_name == "ask_user":
             result["content"] = ask_user(input["prompt"])
         elif function_name == "replace_in_file":
-            result["content"] = replace_in_file(
+            replace_in_file(
                 input["name"],
                 agent,
                 input["to_replace"],
@@ -271,13 +289,19 @@ def handle_claude_tool_call(
             )
             modified_files.add(input["name"])
         elif function_name == "rename_file":
-            result["content"] = rename_file(
+            rename_file(
                 input["old_name"],
                 input["new_name"],
                 agent,
             )
             modified_files.add(input["old_name"])
             modified_files.add(input["new_name"])
+        elif function_name == "delete_file":
+            delete_file(
+                input["name"],
+                agent,
+            )
+            modified_files.add(input["name"])
         else:
             raise Exception(f"Unknown function: {function_name}")
         # if "content" in result and len(result["content"]) > MAX_
