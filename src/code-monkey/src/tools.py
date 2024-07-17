@@ -59,6 +59,15 @@ def ask_user(prompt: str) -> str:
     return input()
 
 
+def get_file_tree(directory: str) -> Set[str]:
+    relative_paths = set()
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            full_path = os.path.join(root, file)
+            relative_path = os.path.relpath(full_path, directory)
+            relative_paths.add(relative_path)
+    return relative_paths
+
 def copy_src() -> List[str]:
     dest_dir = artifacts_dir
 
@@ -70,14 +79,7 @@ def copy_src() -> List[str]:
     except Exception as e:
         print(f"Directory not copied. Error: {str(e)}")
 
-    relative_paths = []
-    for root, dirs, files in os.walk(dest_dir):
-        for file in files:
-            full_path = os.path.join(root, file)
-            relative_path = os.path.relpath(full_path, dest_dir)
-            relative_paths.append(relative_path)
-
-    return relative_paths
+    return list(get_file_tree(dest_dir))
 
 
 def replace_in_file(
@@ -254,6 +256,17 @@ claude_tools: List[Dict[str, Any]] = [
             "required": ["pattern"],
         },
     },
+    {
+        "name": "exec",
+        "description": "Execute a command in the terminal",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "command": {"type": "string", "description": "The command to execute."},
+            },
+            "required": ["command"],
+        },
+    },
 ]
 
 
@@ -341,6 +354,45 @@ def rg(pattern: str, agent: AgentName) -> str:
         else:
             raise Exception(f"Error occurred: {e.stderr}")
 
+# Set to store approved commands
+approved_commands = set()
+
+def exec(command: str, agent: AgentName) -> Dict[str, str]:
+    file_tree = get_file_tree(artifacts_dir)
+    
+    # Convert matching file names to absolute paths
+    command_parts = command.split()
+    for i, part in enumerate(command_parts):
+        if part in file_tree:
+            command_parts[i] = os.path.join(artifacts_dir, part)
+    
+    modified_command = " ".join(command_parts)
+    
+    if modified_command not in approved_commands:
+        confirmation = ask_user(f"Do you want to execute the following command? [Y/n]\n{modified_command}")
+        if confirmation.lower() != 'y' and confirmation != '':
+            raise Exception("Command execution cancelled by user.")
+        approved_commands.add(modified_command)
+    
+    try:
+        result = subprocess.run(
+            modified_command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return {
+            "stdout": result.stdout,
+            "stderr": result.stderr
+        }
+    except subprocess.CalledProcessError as e:
+        error_message = f"Command execution failed with return code {e.returncode}.\n"
+        error_message += f"Command: {modified_command}\n"
+        error_message += f"Stdout: {e.stdout}\n"
+        error_message += f"Stderr: {e.stderr}"
+        raise Exception(error_message)
+
 def handle_claude_tool_call(
     agent: AgentName,
     id: any,
@@ -404,6 +456,11 @@ def handle_claude_tool_call(
             print(result["content"])  # Show test results to the user
         elif function_name == "rg":
             result["content"] = rg(input["pattern"], agent)
+        elif function_name == "exec":
+            exec_result = exec(input["command"], agent)
+            result["content"] = f"Command execution results:\n"
+            result["content"] += f"Stdout:\n{exec_result['stdout']}\n"
+            result["content"] += f"Stderr:\n{exec_result['stderr']}"
         else:
             raise Exception(f"Unknown function: {function_name}")
         # if "content" in result and len(result["content"]) > MAX_

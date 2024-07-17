@@ -55,5 +55,34 @@ install_ripgrep() {
     echo "ripgrep has been installed successfully."
 }
 
+install_graphviz() {
+    if command -v dot &> /dev/null; then
+        echo "Graphviz is already installed."
+        return 0
+    fi
+
+    echo "Graphviz could not be found. Installing..."
+
+    local package_manager=$(detect_package_manager)
+
+    if [ "$package_manager" = "unknown" ]; then
+        echo "Unsupported package manager or operating system. Please install Graphviz manually."
+        return 1
+    fi
+
+    install_package "graphviz" "${package_manager##*/}"
+    echo "Graphviz has been installed successfully."
+
+    # Add Graphviz to PATH
+    if [[ ":$PATH:" != *":/usr/local/bin:"* ]]; then
+        echo 'export PATH=$PATH:/usr/local/bin' >> ~/.bashrc
+        echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc
+        echo "Graphviz executables have been added to your PATH. Please restart your terminal or run 'source ~/.bashrc' (or ~/.zshrc) for the changes to take effect."
+    else
+        echo "Graphviz executables should already be in your PATH."
+    fi
+}
+
 # Main script execution
 install_ripgrep
+install_graphviz

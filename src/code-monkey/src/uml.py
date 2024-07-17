@@ -1,8 +1,8 @@
 import os
-import ast
-from typing import Dict, List, Tuple
+from typing import Dict, List
 import graphviz
-from pylint import astroid
+from pylint.pyreverse.main import Run
+from pylint.pyreverse.inspector import Project
 from constants import src_dir
 
 def get_python_files(directory: str) -> List[str]:
@@ -13,30 +13,21 @@ def get_python_files(directory: str) -> List[str]:
                 python_files.append(os.path.join(root, file))
     return python_files
 
-def parse_file(file_path: str) -> Tuple[str, Dict[str, List[str]]]:
-    with open(file_path, 'r') as file:
-        content = file.read()
-    
-    module = astroid.parse(content)
-    class_info = {}
-    
-    for node in module.body:
-        if isinstance(node, astroid.ClassDef):
-            methods = [m.name for m in node.mymethods()]
-            class_info[node.name] = methods
-    
-    return os.path.basename(file_path), class_info
+def parse_files(files: List[str]) -> Project:
+    run = Run(files)
+    return run.project
 
-def generate_uml(files_info: Dict[str, Dict[str, List[str]]]):
+def generate_uml(project: Project):
     dot = graphviz.Digraph(comment='UML Diagram')
     dot.attr(rankdir='TB', size='8,8')
 
-    for file, classes in files_info.items():
-        with dot.subgraph(name=f'cluster_{file}') as c:
-            c.attr(label=file, style='filled', color='lightgrey')
-            for class_name, methods in classes.items():
-                class_node = f'{file}_{class_name}'
-                label = f'{{{class_name}|{"|".join(methods)}}}'
+    for module in project.modules():
+        with dot.subgraph(name=f'cluster_{module.name}') as c:
+            c.attr(label=module.name, style='filled', color='lightgrey')
+            for klass in module.classes:
+                class_node = f'{module.name}_{klass.name}'
+                methods = [m.name for m in klass.methods]
+                label = f'{{{klass.name}|{"|".join(methods)}}}'
                 c.node(class_node, label, shape='record')
 
     dot.render('uml_diagram', format='png', cleanup=True)
@@ -44,13 +35,8 @@ def generate_uml(files_info: Dict[str, Dict[str, List[str]]]):
 
 def main():
     python_files = get_python_files(src_dir)
-    files_info = {}
-    
-    for file in python_files:
-        file_name, class_info = parse_file(file)
-        files_info[file_name] = class_info
-    
-    generate_uml(files_info)
+    project = parse_files(python_files)
+    generate_uml(project)
 
 if __name__ == '__main__':
     main()

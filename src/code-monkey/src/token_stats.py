@@ -24,7 +24,9 @@ class TokenStats:
         if self.tokens_in_last_minute >= CLAUDE_RATE_LIMIT:
             sleep_time = 60 - (time.time() - self.last_request_time)
             if sleep_time > 0:
-                print(f"Rate limit reached. Sleeping for {sleep_time:.2f} seconds.")
+                print(
+                    f"💤 Rate limit reached ({self.tokens_in_last_minute}/min). Sleeping for {sleep_time:.2f} seconds..."
+                )
                 time.sleep(sleep_time)
             self.tokens_in_last_minute = 0
 
