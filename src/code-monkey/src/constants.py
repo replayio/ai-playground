@@ -1,6 +1,9 @@
 import os
 from dotenv import load_dotenv
 
+src_dir = os.path.dirname(os.path.abspath(__file__))
+artifacts_dir = os.path.join(src_dir, "..", "artifacts")
+
 # Load environment variables from .env and .secret.env
 load_dotenv()
 if not load_dotenv(".env.secret"):

@@ -337,7 +337,7 @@ def rg(pattern: str, agent: AgentName) -> str:
         return result.stdout
     except subprocess.CalledProcessError as e:
         if e.returncode == 1:  # No matches found
-            raise Exception("No matches found.")
+            return "No matches found."
         else:
             raise Exception(f"Error occurred: {e.stderr}")
 

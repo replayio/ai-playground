@@ -8,7 +8,7 @@ def main() -> None:
 
     print("Go...\n")
 
-    prompt = "Fix imports in agent.py and main.py"
+    prompt = "Create a new file uml.py that generates a uml diagram of all files in constant.py's src_dir folder (recursively)."
     # prompt = "Run tests for copy_src in tools.py and fix things if they fail."
 
     claude_agent.run_prompt(prompt)
