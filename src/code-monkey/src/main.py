@@ -55,7 +55,7 @@ class ClaudeAgent(Agent):
             response = self._get_claude_response(messages)
             had_any_text = self._process_response(response, modified_files, had_any_text, assistant_messages, user_messages)
             
-            if not user_messages:
+            if not len(user_messages):
                 # We are done when no more input is given to the assistant.
                 if self._handle_completion(had_any_text, modified_files):
                     break
@@ -155,7 +155,7 @@ def main() -> None:
 
     print("Go...\n")
 
-    prompt = "In tools.py: Add a create_file tool. Make sure its hooked up correctly."
+    prompt = "In tools.py: Add and hook up a run_test tool. It should spawn a process to run Python tests in a given file. File name should work like in the other file tools. The tool should provide the test result and stdout and stderr back to the agent. It should also show the test results to the user."
 
     claude_agent.run_prompt(prompt)
 

@@ -232,6 +232,17 @@ claude_tools: List[Dict[str, Any]] = [
             "required": ["name"],
         },
     },
+    {
+        "name": "run_test",
+        "description": "Run Python tests in a given file and return the results",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Name of the test file to run."},
+            },
+            "required": ["name"],
+        },
+    },
 ]
 
 
@@ -282,6 +293,24 @@ def create_file(name: str, agent: AgentName, content: str = "") -> str:
     
     with open(file_path, "w") as file:
         file.write(content)
+
+def run_test(name: str, agent: AgentName) -> Dict[str, str]:
+    file_path = make_file_path(name, agent)
+    
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"The file {name} does not exist.")
+
+    result = subprocess.run(
+        ["python", "-m", "unittest", file_path],
+        capture_output=True,
+        text=True,
+        cwd=os.path.dirname(file_path)
+    )
+    return {
+        "returncode": str(result.returncode),
+        "stdout": result.stdout,
+        "stderr": result.stderr
+    }
 
 def handle_claude_tool_call(
     agent: AgentName,
@@ -337,6 +366,13 @@ def handle_claude_tool_call(
                 content,
             )
             modified_files.add(input["name"])
+        elif function_name == "run_test":
+            test_result = run_test(input["name"], agent)
+            result["content"] = f"Test results for {input['name']}:\n"
+            result["content"] += f"Return code: {test_result['returncode']}\n"
+            result["content"] += f"Stdout:\n{test_result['stdout']}\n"
+            result["content"] += f"Stderr:\n{test_result['stderr']}"
+            print(result["content"])  # Show test results to the user
         else:
             raise Exception(f"Unknown function: {function_name}")
         # if "content" in result and len(result["content"]) > MAX_
