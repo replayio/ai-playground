@@ -70,7 +70,14 @@ def copy_src() -> List[str]:
     except Exception as e:
         print(f"Directory not copied. Error: {e}")
 
-    return os.listdir(dest_dir)
+    relative_paths = []
+    for root, dirs, files in os.walk(dest_dir):
+        for file in files:
+            full_path = os.path.join(root, file)
+            relative_path = os.path.relpath(full_path, dest_dir)
+            relative_paths.append(relative_path)
+
+    return relative_paths
 
 
 def replace_in_file(

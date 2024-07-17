@@ -12,7 +12,7 @@ from tools import (
     show_diff
 )
 from pprint import pprint
-from config import OPENAI_API_KEY, ANTHROPIC_API_KEY, MAX_TOKENS
+from config import ANTHROPIC_API_KEY, MAX_TOKENS
 
 
 # Prompt Design
@@ -135,24 +135,14 @@ class ClaudeAgent(Agent):
 
 def main() -> None:
     print("Initializing...")
-    # openai_agent = OpenAIAgent()
     names = copy_src()
     claude_agent = ClaudeAgent(names)
     # names = []
 
     print("Go...\n")
 
-    prompt = "Modify "
+    prompt = "Modify copy_src in tools.py: 1. List all relative filepaths recursively. 2. Add unit tests for copy_src. 3. Tell me how to install missing deps and run the unit tests."
 
-    # prompt = "What is the end index of tools.py? Is the end index of tools.py different from its length? Also print the numerical confidence you have in your answer."
-    # prompt = "What are the last 100 characters of tools.py?"
-
-    # prompt = "Append a hello_world function to the end of tools.py"
-    # prompt = "What is your max_tokens setting?"
-    # prompt = "Modify tools.py: Add an ask_user tool. The tool should use stdio to ask the user. The user's input is returned to the assistant."
-    # prompt = "Modify tools.py: Modify the write_file tool: 1. rename write_file to edit_file. 2. take optional start and end parameters that replace the characters between start and end with the provided new content."
-    # prompt = "Modify test.py: Add a snake program into it using pygame"
-    # prompt = "If you had to modify tools.py, what parameters would you pass to the write_file tool?"
     claude_agent.run_prompt(prompt)
 
     # print("\n\n")
