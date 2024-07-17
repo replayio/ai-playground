@@ -243,6 +243,17 @@ claude_tools: List[Dict[str, Any]] = [
             "required": ["name"],
         },
     },
+    {
+        "name": "rg",
+        "description": "Search for a pattern in files within the artifacts folder using ripgrep",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "pattern": {"type": "string", "description": "The pattern to search for."},
+            },
+            "required": ["pattern"],
+        },
+    },
 ]
 
 
@@ -315,6 +326,21 @@ def run_test(name: str, agent: AgentName) -> Dict[str, str]:
         "stderr": result.stderr
     }
 
+def rg(pattern: str, agent: AgentName) -> str:
+    try:
+        result = subprocess.run(
+            ["rg", "-i", pattern, artifacts_dir],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        if e.returncode == 1:  # No matches found
+            raise Exception("No matches found.")
+        else:
+            raise Exception(f"Error occurred: {e.stderr}")
+
 def handle_claude_tool_call(
     agent: AgentName,
     id: any,
@@ -376,6 +402,8 @@ def handle_claude_tool_call(
             result["content"] += f"Stdout:\n{test_result['stdout']}\n"
             result["content"] += f"Stderr:\n{test_result['stderr']}"
             print(result["content"])  # Show test results to the user
+        elif function_name == "rg":
+            result["content"] = rg(input["pattern"], agent)
         else:
             raise Exception(f"Unknown function: {function_name}")
         # if "content" in result and len(result["content"]) > MAX_
