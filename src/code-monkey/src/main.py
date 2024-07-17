@@ -53,13 +53,12 @@ class ClaudeAgent(Agent):
 
         while True:
             response = self._get_claude_response(messages)
-            had_any_text, result = self._process_response(response, modified_files, had_any_text, assistant_messages, user_messages)
+            had_any_text = self._process_response(response, modified_files, had_any_text, assistant_messages, user_messages)
             
-            if result:
-                return result
-
             if not user_messages:
-                break
+                # We are done when no more input is given to the assistant.
+                if self._handle_completion(had_any_text, modified_files):
+                    break
 
             messages.extend([
                 {"role": "assistant", "content": assistant_messages},
@@ -68,26 +67,28 @@ class ClaudeAgent(Agent):
             assistant_messages = []
             user_messages = []
 
-        self._handle_completion(had_any_text, modified_files)
-        return ""
-
     def _prepare_prompt(self, prompt: str) -> str:
         prompt = prompt.strip()
         print(f'Q: "{prompt}"')
         return self.imbue_prompt(prompt)
 
     def _get_claude_response(self, messages: List[dict]) -> dict:
-        return self.client.messages.create(
-            temperature=0,
-            system=SYSTEM_PROMPT,
-            model="claude-3-5-sonnet-20240620",
-            max_tokens=MAX_TOKENS,
-            messages=messages,
-            tools=claude_tools,
-            extra_headers={"anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"},
-        )
+        try:
+            return self.client.messages.create(
+                temperature=0,
+                system=SYSTEM_PROMPT,
+                model="claude-3-5-sonnet-20240620",
+                max_tokens=MAX_TOKENS,
+                messages=messages,
+                tools=claude_tools,
+                extra_headers={"anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"},
+            )
+        except Exception as err:
+            print("PROMPT ERROR with the following messages:")
+            pprint(messages)
+            raise err
 
-    def _process_response(self, response: dict, modified_files: set, had_any_text: bool, assistant_messages: List[dict], user_messages: List[dict]) -> tuple:
+    def _process_response(self, response: dict, modified_files: set, had_any_text: bool, assistant_messages: List[dict], user_messages: List[dict]) -> bool:
         for response_message in response.content:
             assistant_messages.append(response_message)
 
@@ -98,14 +99,16 @@ class ClaudeAgent(Agent):
                 print(f"A: {response_message.text}")
             elif response_message.type == "error":
                 had_any_text = True
-                return had_any_text, f"ERROR: {response_message.text}"
+                print(f"ERROR: {response_message.text}")
+                return had_any_text
             elif response_message.type == "final":
                 had_any_text = True
-                return had_any_text, f"DONE: {str(response_message)}"
+                print(f"DONE: {str(response_message)}")
+                return had_any_text
             else:
                 raise Exception(f"Unhandled message type: {response_message.type} - {str(response_message)}")
 
-        return had_any_text, None
+        return had_any_text
 
     def _handle_tool_use(self, response_message: dict, modified_files: set) -> dict:
         return handle_claude_tool_call(
@@ -123,9 +126,9 @@ class ClaudeAgent(Agent):
         if modified_files:
             print(f"Modified files: {', '.join(modified_files)}")
             for file in modified_files:
-                self._process_single_file(file)
+                self._handle_modified_file(file)
 
-    def _process_single_file(self, file: str) -> None:
+    def _handle_modified_file(self, file: str) -> None:
         original_file = os.path.join(src_dir, file)
         modified_file = os.path.join(artifacts_dir, file)
         diff = show_diff(original_file, modified_file)
@@ -152,7 +155,7 @@ def main() -> None:
 
     print("Go...\n")
 
-    prompt = "In tools.py: Hook up the delete_file tool in handle_claude_tool_call."
+    prompt = "In tools.py: Add a create_file tool. Make sure its hooked up correctly."
 
     claude_agent.run_prompt(prompt)
 

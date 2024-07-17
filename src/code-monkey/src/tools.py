@@ -217,6 +217,21 @@ claude_tools: List[Dict[str, Any]] = [
             "required": ["name"],
         },
     },
+    {
+        "name": "create_file",
+        "description": "Create a new file with optional content",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Name of the file to create."},
+                "content": {
+                    "type": "string",
+                    "description": "Initial content of the file (optional).",
+                },
+            },
+            "required": ["name"],
+        },
+    },
 ]
 
 
@@ -255,6 +270,18 @@ def delete_file(name: str, agent: AgentName) -> str:
         raise FileNotFoundError(f"The file {name} does not exist.")
     
     os.remove(file_path)
+
+def create_file(name: str, agent: AgentName, content: str = "") -> str:
+    file_path = make_file_path(name, agent)
+    
+    if os.path.exists(file_path):
+        raise FileExistsError(f"The file {name} already exists.")
+    
+    # Create the directory for the new file if it doesn't exist
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    
+    with open(file_path, "w") as file:
+        file.write(content)
 
 def handle_claude_tool_call(
     agent: AgentName,
@@ -300,6 +327,14 @@ def handle_claude_tool_call(
             delete_file(
                 input["name"],
                 agent,
+            )
+            modified_files.add(input["name"])
+        elif function_name == "create_file":
+            content = input.get("content", "")
+            create_file(
+                input["name"],
+                agent,
+                content,
             )
             modified_files.add(input["name"])
         else:
