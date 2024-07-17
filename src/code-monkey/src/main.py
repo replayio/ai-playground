@@ -1,6 +1,7 @@
 import os
 from typing import List
 from anthropic import Anthropic
+from anthropic.types import Message
 from tools import (
     AgentName,
     handle_claude_tool_call,
@@ -13,7 +14,7 @@ from tools import (
 )
 from pprint import pprint
 from constants import ANTHROPIC_API_KEY, MAX_TOKENS, SYSTEM_PROMPT
-
+from token_stats import TokenStats
 
 # Agents
 
@@ -42,6 +43,7 @@ class ClaudeAgent(Agent):
     def __init__(self, names: List[str]) -> None:
         super().__init__(names)
         self.client = Anthropic(api_key=ANTHROPIC_API_KEY)
+        self.token_stats = TokenStats()
 
     def run_prompt(self, prompt: str) -> str:
         prompt = self._prepare_prompt(prompt)
@@ -53,6 +55,7 @@ class ClaudeAgent(Agent):
 
         while True:
             response = self._get_claude_response(messages)
+            self.token_stats.update(response.usage.input_tokens, response.usage.output_tokens)
             had_any_text = self._process_response(response, modified_files, had_any_text, assistant_messages, user_messages)
             
             if not len(user_messages):
@@ -67,12 +70,15 @@ class ClaudeAgent(Agent):
             assistant_messages = []
             user_messages = []
 
+        self.token_stats.print_stats()
+
     def _prepare_prompt(self, prompt: str) -> str:
         prompt = prompt.strip()
         print(f'Q: "{prompt}"')
         return self.imbue_prompt(prompt)
 
-    def _get_claude_response(self, messages: List[dict]) -> dict:
+    def _get_claude_response(self, messages: List[dict]) -> Message:
+        self.token_stats.check_rate_limit()
         try:
             return self.client.messages.create(
                 temperature=0,
@@ -88,7 +94,7 @@ class ClaudeAgent(Agent):
             pprint(messages)
             raise err
 
-    def _process_response(self, response: dict, modified_files: set, had_any_text: bool, assistant_messages: List[dict], user_messages: List[dict]) -> bool:
+    def _process_response(self, response: Message, modified_files: set, had_any_text: bool, assistant_messages: List[dict], user_messages: List[dict]) -> bool:
         for response_message in response.content:
             assistant_messages.append(response_message)
 
@@ -127,15 +133,13 @@ class ClaudeAgent(Agent):
             print(f"Modified files: {', '.join(modified_files)}")
             for file in modified_files:
                 self._handle_modified_file(file)
+        return True
 
     def _handle_modified_file(self, file: str) -> None:
         original_file = os.path.join(src_dir, file)
         modified_file = os.path.join(artifacts_dir, file)
-        diff = show_diff(original_file, modified_file)
-        print(f"Diff for {file}:")
-        print(diff)
-
-        apply_changes = ask_user(f"Do you want to apply the changes to {file}? (Y/n): ").lower()
+        show_diff(original_file, modified_file)
+        apply_changes = ask_user(f"Do you want to apply the changes to {file} (diff shown in VSCode)? (Y/n): ").lower()
         if apply_changes == "y" or apply_changes == "":
             self._apply_changes(original_file, modified_file)
             print(f"✅ Changes applied to {file}")
@@ -155,7 +159,8 @@ def main() -> None:
 
     print("Go...\n")
 
-    prompt = "Add tests for copy_src in tools.py."
+    prompt = "Modify tools.py: Only show a diff if both files exist. If only the new file exists, open it with VSCode's code cli tool instead. If only the old file exists, print a message - `File deleted.`"
+    # prompt = "Run tests for copy_src in tools.py and fix things if they fail."
 
     claude_agent.run_prompt(prompt)
 

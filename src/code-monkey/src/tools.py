@@ -247,15 +247,18 @@ claude_tools: List[Dict[str, Any]] = [
 
 
 def show_diff(original_file: str, modified_file: str) -> str:
-    try:
-        result = subprocess.run(
+    if os.path.exists(original_file) and os.path.exists(modified_file):
+        subprocess.run(
             ["code", "--diff", original_file, modified_file],
             capture_output=True,
             text=True,
         )
-        return result.stdout
-    except Exception as e:
-        return f"Error showing diff: {str(e)}"
+    elif os.path.exists(modified_file):
+        subprocess.run(["code", modified_file], capture_output=True, text=True)
+    elif os.path.exists(original_file):
+        print("File deleted.")
+    else:
+        raise Exception(f"Could not diff files. Neither file exists: {original_file} and {modified_file}")
 
 
 def rename_file(old_name: str, new_name: str, agent: AgentName) -> str:
@@ -319,7 +322,7 @@ def handle_claude_tool_call(
     input: Dict[str, Any],
     modified_files: Set[str],
 ) -> List[Dict[str, Any]]:
-    print(f"TOOL_USE: {function_name} {input}")
+    # print(f"TOOL_USE: {function_name} {input}")
     result = {"type": "tool_result", "tool_use_id": id}
     try:
         if function_name == "read_file":

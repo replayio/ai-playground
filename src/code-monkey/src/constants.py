@@ -19,9 +19,13 @@ SYSTEM_PROMPT = """
 4. Prefer using replace_in_file over write_file.
 5. Don't make white-space-only changes to files.
 6. If you have low confidence in a response or don't understand an instruction, explain why and use the ask_user tool to gather clarifications.
+7. Don't retry failed commands.
 """
 
 if not OPENAI_API_KEY or not ANTHROPIC_API_KEY:
     raise ValueError(
         "API keys not found. Please check your .env and .secret.env files."
     )
+
+# Claude rate limit
+CLAUDE_RATE_LIMIT = 40000  # tokens per minute
