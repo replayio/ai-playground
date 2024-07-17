@@ -12,7 +12,7 @@ from tools import (
     show_diff
 )
 from pprint import pprint
-from config import ANTHROPIC_API_KEY, MAX_TOKENS, SYSTEM_PROMPT
+from constants import ANTHROPIC_API_KEY, MAX_TOKENS, SYSTEM_PROMPT
 
 
 # Agents
@@ -155,7 +155,7 @@ def main() -> None:
 
     print("Go...\n")
 
-    prompt = "In tools.py: Add and hook up a run_test tool. It should spawn a process to run Python tests in a given file. File name should work like in the other file tools. The tool should provide the test result and stdout and stderr back to the agent. It should also show the test results to the user."
+    prompt = "Add tests for copy_src in tools.py."
 
     claude_agent.run_prompt(prompt)
 

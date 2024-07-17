@@ -68,7 +68,7 @@ def copy_src() -> List[str]:
     try:
         shutil.copytree(src_dir, dest_dir, dirs_exist_ok=True)
     except Exception as e:
-        print(f"Directory not copied. Error: {e}")
+        print(f"Directory not copied. Error: {str(e)}")
 
     relative_paths = []
     for root, dirs, files in os.walk(dest_dir):
