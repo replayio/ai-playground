@@ -194,6 +194,18 @@ claude_tools: List[Dict[str, Any]] = [
             "required": ["name", "to_replace", "replacement"],
         },
     },
+    {
+        "name": "rename_file",
+        "description": "Rename a file",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "old_name": {"type": "string", "description": "Current name of the file."},
+                "new_name": {"type": "string", "description": "New name for the file."},
+            },
+            "required": ["old_name", "new_name"],
+        },
+    },
 ]
 
 
@@ -209,6 +221,23 @@ def show_diff(original_file: str, modified_file: str) -> str:
         return f"Error showing diff: {str(e)}"
 
 
+def rename_file(old_name: str, new_name: str, agent: AgentName) -> str:
+    old_path = make_file_path(old_name, agent)
+    new_path = make_file_path(new_name, agent)
+    
+    if not os.path.exists(old_path):
+        raise FileNotFoundError(f"The file {old_name} does not exist.")
+    
+    # Create the directory for the new file if it doesn't exist
+    new_dir = os.path.dirname(new_path)
+    os.makedirs(new_dir, exist_ok=True)
+    
+    if os.path.exists(new_path):
+        raise FileExistsError(f"The file {new_name} already exists.")
+    
+    os.rename(old_path, new_path)
+    return f"File successfully renamed from {old_name} to {new_name}."
+
 def handle_claude_tool_call(
     agent: AgentName,
     id: any,
@@ -216,7 +245,7 @@ def handle_claude_tool_call(
     input: Dict[str, Any],
     modified_files: Set[str],
 ) -> List[Dict[str, Any]]:
-    print(f"TOOL_USE: {function_name}")
+    print(f"TOOL_USE: {function_name} {input}")
     result = {"type": "tool_result", "tool_use_id": id}
     try:
         if function_name == "read_file":
@@ -241,6 +270,14 @@ def handle_claude_tool_call(
                 input["replacement"],
             )
             modified_files.add(input["name"])
+        elif function_name == "rename_file":
+            result["content"] = rename_file(
+                input["old_name"],
+                input["new_name"],
+                agent,
+            )
+            modified_files.add(input["old_name"])
+            modified_files.add(input["new_name"])
         else:
             raise Exception(f"Unknown function: {function_name}")
         # if "content" in result and len(result["content"]) > MAX_

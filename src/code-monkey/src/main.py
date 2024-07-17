@@ -141,7 +141,7 @@ def main() -> None:
 
     print("Go...\n")
 
-    prompt = "Modify copy_src in tools.py: 1. List all relative filepaths recursively. 2. Add unit tests for copy_src. 3. Tell me how to install missing deps and run the unit tests."
+    prompt = "In main.py: refactor run_prompt into more readable smaller functions. Keep the logic mostly the same. Take Lists as paramters, don't return them."
 
     claude_agent.run_prompt(prompt)
 
