@@ -3,7 +3,13 @@ from tools.invoke_agent_tool import InvokeAgentTool
 from tools.read_file_tool import ReadFileTool
 from tools.write_file_tool import WriteFileTool
 from tools.list_files_tool import ListFilesTool
-from tools.io_tool import IOTool
+from tools.create_file_tool import CreateFileTool
+from tools.rename_file_tool import RenameFileTool
+from tools.delete_file_tool import DeleteFileTool
+from tools.replace_in_file_tool import ReplaceInFileTool
+from tools.ask_user_tool import AskUserTool
+from tools.run_test_tool import RunTestTool
+from tools.exec_tool import ExecTool
 
 
 class Coder(ClaudeAgent):
@@ -20,7 +26,10 @@ class Coder(ClaudeAgent):
         ToolUser(ReadFileTool, []),
         ToolUser(WriteFileTool, []),
         ToolUser(ListFilesTool, []),
-        ToolUser(IOTool, []),
+        ToolUser(CreateFileTool, []),
+        ToolUser(RenameFileTool, []),
+        ToolUser(DeleteFileTool, []),
+        ToolUser(ReplaceInFileTool, []),
     ]
 
 
@@ -35,9 +44,24 @@ class Master(ClaudeAgent):
 7. Coordinate and oversee the work of other agents to achieve complex goals.
 """
     tools = [
-        ToolUser(InvokeAgentTool, [["Coder"]])
+        ToolUser(InvokeAgentTool, ["Coder"]),
+        ToolUser(AskUserTool, []),
     ]
 
 
-agents = [Coder, Master]
+class Tester(ClaudeAgent):
+    SYSTEM_PROMPT = """
+1. You are "Tester", an agent responsible for running tests and executing commands.
+2. Use the RunTestTool to run tests and the ExecTool to execute commands when necessary.
+3. Report test results and execution outputs clearly and concisely.
+4. If a test fails or a command execution encounters an error, provide detailed information about the failure or error.
+5. Suggest potential fixes or next steps based on test results or command outputs.
+"""
+    tools = [
+        ToolUser(RunTestTool, []),
+        ToolUser(ExecTool, []),
+    ]
+
+
+agents = [Coder, Master, Tester]
 agents_by_name = {agent.__name__: agent for agent in agents}
