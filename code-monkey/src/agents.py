@@ -25,19 +25,5 @@ class Planner(ClaudeAgent):
 """
 
 
-class InvokeAgentTool:
-    def __init__(self, agentName: str, prompt: str):
-        self.agentName = agentName
-        self.prompt = prompt
-
-    def run(self):
-        agent_class = agents_by_name.get(self.agentName)
-        if agent_class:
-            agent = agent_class()
-            return agent.run(self.prompt)
-        else:
-            return f"Agent '{self.agentName}' not found."
-
-
 agents = [Coder, Planner]
 agents_by_name = {agent.__name__: agent for agent in agents}
