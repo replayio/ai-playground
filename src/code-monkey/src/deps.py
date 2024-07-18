@@ -31,12 +31,29 @@ class DependencyGraph:
     """
     Represents a graph of dependencies between modules.
     """
-    def __init__(self, module_names: Optional[List[str]] = None, full_graph: Optional['DependencyGraph'] = None):
+    def __init__(self, module_paths: Optional[List[str]] = None):
         self.modules: Dict[str, Module] = {}
-        if module_names and full_graph:
-            for name in module_names:
-                if name in full_graph.modules:
-                    self.modules[name] = full_graph.modules[name]
+        if module_paths:
+            for path in module_paths:
+                module_name = os.path.splitext(os.path.basename(path))[0]
+                self.add_module(module_name)
+                self.analyze_file(path, module_name)
+
+    def analyze_file(self, file_path: str, module_name: str) -> None:
+        """
+        Analyze a single file and add its dependencies to the graph.
+        """
+        imports = self.get_imports(file_path)
+        constructs = self.get_top_level_constructs(file_path)
+        
+        for imp in imports:
+            self.add_dependency(module_name, imp, DependencyType.IMPORT)
+        
+        for construct in constructs:
+            if construct not in imports:
+                self.add_dependency(module_name, construct, DependencyType.FUNCTION)  # Assume function for simplicity
+        
+        self.modules[module_name].explored = True
 
     def add_module(self, name: str) -> None:
         """

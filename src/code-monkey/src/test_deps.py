@@ -125,12 +125,12 @@ from file1 import func1
 class MyClass:
     pass
 """
-        self.create_temp_file('file1.py', file1_content)
+        file1_path = self.create_temp_file('file1.py', file1_content)
         self.create_temp_file('file2.py', file2_content)
 
         self.graph.analyze_repository(self.temp_dir)
         
-        partial_graph = DependencyGraph(module_names=['file1'], full_graph=self.graph)
+        partial_graph = DependencyGraph([file1_path])
         self.assertEqual(len(partial_graph.modules), 1)
         self.assertIn('file1', partial_graph.modules)
         self.assertNotIn('file2', partial_graph.modules)

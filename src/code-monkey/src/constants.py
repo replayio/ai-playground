@@ -4,15 +4,22 @@ from dotenv import load_dotenv
 src_dir = os.path.dirname(os.path.abspath(__file__))
 artifacts_dir = os.path.join(src_dir, "..", "artifacts")
 
+# def load_environment():
 # Load environment variables from .env and .secret.env
 load_dotenv()
 if not load_dotenv(".env.secret"):
-    print("WARNING: .env.secret not found in cwd. Some features may not work correctly.")
+    raise FileNotFoundError(".env.secret not found in cwd. Some features may not work correctly.")
 
 # Load API keys
+global OPENAI_API_KEY, ANTHROPIC_API_KEY, MAX_TOKENS
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-MAX_TOKENS = int(os.getenv("MAX_TOKENS")) or 1000
+MAX_TOKENS = int(os.getenv("MAX_TOKENS") or 1000)
+
+# # These variables will be populated when load_environment() is called
+# OPENAI_API_KEY = None
+# ANTHROPIC_API_KEY = None
+# MAX_TOKENS = None
 
 # Prompt Design
 SYSTEM_PROMPT = """
@@ -23,6 +30,7 @@ SYSTEM_PROMPT = """
 5. Don't make white-space-only changes to files.
 6. If you have low confidence in a response or don't understand an instruction, explain why and use the ask_user tool to gather clarifications.
 7. Don't retry failed commands.
+8. Don't suppress Exceptions.
 """
 
 # Claude rate limit

@@ -4,6 +4,7 @@ import traceback
 from enum import Enum
 from typing import List, Dict, Set, Any
 import subprocess
+from deps import DependencyGraph
 
 
 class AgentName(Enum):
@@ -67,6 +68,7 @@ def get_file_tree(directory: str) -> Set[str]:
             relative_path = os.path.relpath(full_path, directory)
             relative_paths.add(relative_path)
     return relative_paths
+
 
 def copy_src() -> List[str]:
     dest_dir = artifacts_dir
@@ -138,6 +140,21 @@ openai_tools: List[Dict[str, Any]] = [
 # See https://docs.anthropic.com/en/docs/build-with-claude/tool-use
 claude_tools: List[Dict[str, Any]] = [
     {
+        "name": "get_dependencies",
+        "description": "Get the dependency graph for one or more Python modules",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "module_names": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of module names to get dependencies for",
+                },
+            },
+            "required": ["module_names"],
+        },
+    },
+    {
         "name": "read_file",
         "description": "Read the contents of the file of given name",
         "input_schema": {
@@ -202,7 +219,10 @@ claude_tools: List[Dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "old_name": {"type": "string", "description": "Current name of the file."},
+                "old_name": {
+                    "type": "string",
+                    "description": "Current name of the file.",
+                },
                 "new_name": {"type": "string", "description": "New name for the file."},
             },
             "required": ["old_name", "new_name"],
@@ -214,7 +234,10 @@ claude_tools: List[Dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "name": {"type": "string", "description": "Name of the file to delete."},
+                "name": {
+                    "type": "string",
+                    "description": "Name of the file to delete.",
+                },
             },
             "required": ["name"],
         },
@@ -225,7 +248,10 @@ claude_tools: List[Dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "name": {"type": "string", "description": "Name of the file to create."},
+                "name": {
+                    "type": "string",
+                    "description": "Name of the file to create.",
+                },
                 "content": {
                     "type": "string",
                     "description": "Initial content of the file (optional).",
@@ -240,7 +266,10 @@ claude_tools: List[Dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "name": {"type": "string", "description": "Name of the test file to run."},
+                "name": {
+                    "type": "string",
+                    "description": "Name of the test file to run.",
+                },
             },
             "required": ["name"],
         },
@@ -251,7 +280,10 @@ claude_tools: List[Dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "pattern": {"type": "string", "description": "The pattern to search for."},
+                "pattern": {
+                    "type": "string",
+                    "description": "The pattern to search for.",
+                },
             },
             "required": ["pattern"],
         },
@@ -282,48 +314,53 @@ def show_diff(original_file: str, modified_file: str) -> str:
     elif os.path.exists(original_file):
         print("File deleted.")
     else:
-        raise Exception(f"Could not diff files. Neither file exists: {original_file} and {modified_file}")
+        raise Exception(
+            f"Could not diff files. Neither file exists: {original_file} and {modified_file}"
+        )
 
 
 def rename_file(old_name: str, new_name: str, agent: AgentName) -> str:
     old_path = make_file_path(old_name, agent)
     new_path = make_file_path(new_name, agent)
-    
+
     if not os.path.exists(old_path):
         raise FileNotFoundError(f"The file {old_name} does not exist.")
-    
+
     # Create the directory for the new file if it doesn't exist
     new_dir = os.path.dirname(new_path)
     os.makedirs(new_dir, exist_ok=True)
-    
+
     if os.path.exists(new_path):
         raise FileExistsError(f"The file {new_name} already exists.")
-    
+
     os.rename(old_path, new_path)
+
 
 def delete_file(name: str, agent: AgentName) -> str:
     file_path = make_file_path(name, agent)
-    
+
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"The file {name} does not exist.")
-    
+
     os.remove(file_path)
+
 
 def create_file(name: str, agent: AgentName, content: str = "") -> str:
     file_path = make_file_path(name, agent)
-    
+
     if os.path.exists(file_path):
         raise FileExistsError(f"The file {name} already exists.")
-    
+
     # Create the directory for the new file if it doesn't exist
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    
+
     with open(file_path, "w") as file:
         file.write(content)
 
+
 def run_test(name: str, agent: AgentName) -> Dict[str, str]:
     file_path = make_file_path(name, agent)
-    
+
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"The file {name} does not exist.")
 
@@ -331,13 +368,14 @@ def run_test(name: str, agent: AgentName) -> Dict[str, str]:
         ["python", "-m", "unittest", file_path],
         capture_output=True,
         text=True,
-        cwd=os.path.dirname(file_path)
+        cwd=os.path.dirname(file_path),
     )
     return {
         "returncode": str(result.returncode),
         "stdout": result.stdout,
-        "stderr": result.stderr
+        "stderr": result.stderr,
     }
+
 
 def rg(pattern: str, agent: AgentName) -> str:
     try:
@@ -345,7 +383,7 @@ def rg(pattern: str, agent: AgentName) -> str:
             ["rg", "-i", pattern, artifacts_dir],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
         return result.stdout
     except subprocess.CalledProcessError as e:
@@ -354,44 +392,53 @@ def rg(pattern: str, agent: AgentName) -> str:
         else:
             raise Exception(f"Error occurred: {e.stderr}")
 
+
 # Set to store approved commands
 approved_commands = set()
 
+
 def exec(command: str, agent: AgentName) -> Dict[str, str]:
     file_tree = get_file_tree(artifacts_dir)
-    
+
     # Convert matching file names to absolute paths
     command_parts = command.split()
     for i, part in enumerate(command_parts):
         if part in file_tree:
             command_parts[i] = os.path.join(artifacts_dir, part)
-    
+
     modified_command = " ".join(command_parts)
-    
+
     if modified_command not in approved_commands:
-        confirmation = ask_user(f"Do you want to execute the following command? [Y/n]\n{modified_command}")
-        if confirmation.lower() != 'y' and confirmation != '':
+        confirmation = ask_user(
+            f"Do you want to execute the following command? [Y/n]\n{modified_command}"
+        )
+        if confirmation.lower() != "y" and confirmation != "":
             raise Exception("Command execution cancelled by user.")
         approved_commands.add(modified_command)
-    
+
     try:
         result = subprocess.run(
-            modified_command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            check=True
+            modified_command, shell=True, capture_output=True, text=True, check=True
         )
-        return {
-            "stdout": result.stdout,
-            "stderr": result.stderr
-        }
+        return {"stdout": result.stdout, "stderr": result.stderr}
     except subprocess.CalledProcessError as e:
         error_message = f"Command execution failed with return code {e.returncode}.\n"
         error_message += f"Command: {modified_command}\n"
         error_message += f"Stdout: {e.stdout}\n"
         error_message += f"Stderr: {e.stderr}"
         raise Exception(error_message)
+
+
+def get_dependencies(module_names: List[str]) -> Dict[str, List[str]]:
+    module_paths = [
+        os.path.join(artifacts_dir, f"{module}.py") for module in module_names
+    ]
+    dependency_graph = DependencyGraph(module_paths)
+    return {
+        module.name: [dep.name for dep in module.dependencies]
+        for module in dependency_graph.modules.values()
+    }
+
 
 def handle_claude_tool_call(
     agent: AgentName,
@@ -403,7 +450,10 @@ def handle_claude_tool_call(
     # print(f"TOOL_USE: {function_name} {input}")
     result = {"type": "tool_result", "tool_use_id": id}
     try:
-        if function_name == "read_file":
+        if function_name == "get_dependencies":
+            dependency_graph = get_dependencies(input["module_names"])
+            result["content"] = dependency_graph
+        elif function_name == "read_file":
             content = read_file(input["name"], agent)
             result["content"] = content
         elif function_name == "write_file":
