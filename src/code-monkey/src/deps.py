@@ -1,45 +1,47 @@
-from pylint.pyreverse.main import Run
-from pylint.pyreverse.inspector import Linker
-from pylint.pyreverse.utils import insert_default_options
-from astroid import MANAGER
-from typing import List, Tuple
+import os
+import ast
 from constants import artifacts_dir
 
+def get_imports(file_path):
+    with open(file_path, 'r') as file:
+        tree = ast.parse(file.read())
+    
+    imports = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                imports.append(alias.name)
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module if node.module else ''
+            for alias in node.names:
+                imports.append(f"{module}.{alias.name}")
+    
+    return imports
 
-def analyze_repository(repo_path: str) -> List[Tuple[str, str]]:
-    # Prepare command-line style arguments for pyreverse
-    args = ['-o', 'dot', '-p', 'myproject', repo_path]
-    
-    # Insert default options
-    insert_default_options(args)
-    
-    # Run pyreverse analysis
-    config = Run(args, exit=False).config
-    project = config.project
-    
-    # Use the Linker to get dependencies
-    linker = Linker(project)
-    linker.visit(project)
-    
-    # Extract dependencies
-    dependencies = []
-    for module in project.modules():
-        for dep in module.depends:
-            dependencies.append((module.name, dep.name))
+def analyze_repository(repo_path):
+    dependencies = {}
+    for root, _, files in os.walk(repo_path):
+        for file in files:
+            if file.endswith('.py'):
+                file_path = os.path.join(root, file)
+                module_name = os.path.splitext(file)[0]
+                imports = get_imports(file_path)
+                dependencies[module_name] = imports
     
     return dependencies
 
 def main():
-    repo_path = artifacts_dir
-
-    # Clear astroid cache to ensure fresh analysis
-    MANAGER.astroid_cache.clear()
+    repo_path = str(artifacts_dir)
+    print(f"Analyzing directory: {repo_path}")
     
     dependencies = analyze_repository(repo_path)
-
-    print("Module dependencies:")
-    for dep in dependencies:
-        print(f"{dep[0]} -> {dep[1]}")
+    
+    print("\nModule dependencies:")
+    for module, imports in dependencies.items():
+        print(f"{module}:")
+        for imp in imports:
+            print(f"  -> {imp}")
+        print()
 
 if __name__ == "__main__":
     main()
