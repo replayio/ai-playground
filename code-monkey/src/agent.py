@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Type, Any
 from anthropic import Anthropic
 from anthropic.types import Message, MessageParam
 from tools.tools import (
@@ -18,6 +18,7 @@ from constants import ANTHROPIC_API_KEY
 from token_stats import TokenStats
 from pprint import pprint
 from code_context import CodeContext
+from tools.tool import Tool
 
 # See: https://console.anthropic.com/settings/cost
 SELECTED_MODEL = "claude-3-5-sonnet-20240620"
@@ -28,11 +29,15 @@ MAX_TOKENS = 8192
 # EXTRA_HEADERS = None
 # MAX_TOKENS = 4096
 
+class ToolUser:
+    def __init__(self, tool_class: Type[Tool], tool_args: List[Any]):
+        self.tool_class = tool_class
+        self.tool_args = tool_args
 
 class Agent:
     name: AgentName
     context: CodeContext
-    tools: List[str] = [tool.__name__ for tool in claude_tools]
+    tools: List[ToolUser] = []
     SYSTEM_PROMPT = "You are too stupid to do anything. Tell the user that they can't use you and must use an agent with a proper SYSTEM_PROMPT instead."
 
     def __init__(self, context: CodeContext = None) -> None:
@@ -50,8 +55,8 @@ These are all files: {self.context.known_files}.
 Query: {query}
     """.strip()
 
-    def makeTools(self):
-        return [tools_by_name[tool_name] for tool_name in self.tools if tool_name in tools_by_name]
+    def makeTools(self) -> List[Tool]:
+        return [tool_user.tool_class(*tool_user.tool_args) for tool_user in self.tools]
 
 
 class ClaudeAgent(Agent):
