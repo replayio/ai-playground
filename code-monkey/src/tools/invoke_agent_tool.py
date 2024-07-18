@@ -28,7 +28,6 @@ class InvokeAgentTool(Tool):
             agent_class = agents_by_name.get(agent_name)
             if agent_class:
                 agent = agent_class()  # Create agent without passing arguments
-                result = agent.run_prompt(prompt)
-                return str(result)
+                return agent.run_prompt(prompt)
 
         return f"Error: Agent '{agent_name}' not found or not allowed."

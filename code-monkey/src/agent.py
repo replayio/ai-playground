@@ -1,5 +1,5 @@
 import os
-from typing import List, Type, Any
+from typing import List, Type, Any, Tuple
 from anthropic import Anthropic
 from anthropic.types import Message, MessageParam
 from tools.tools import (
@@ -78,6 +78,7 @@ class ClaudeAgent(Agent):
         assistant_messages = []
         user_messages = [{"role": "user", "content": prompt}]
         messages = user_messages
+        final_message_content = ""
 
         try:
             while True:
@@ -93,7 +94,7 @@ class ClaudeAgent(Agent):
                 # Debug-print stats
                 self.token_stats.print_stats()
 
-                had_any_text = self._process_response(
+                had_any_text, final_message_content = self._process_response(
                     response,
                     modified_files,
                     had_any_text,
@@ -117,6 +118,7 @@ class ClaudeAgent(Agent):
             raise err
 
         self.token_stats.print_stats()
+        return final_message_content
 
     def _prepare_prompt(self, prompt: str) -> str:
         prompt = prompt.strip()
@@ -149,7 +151,8 @@ class ClaudeAgent(Agent):
         had_any_text: bool,
         assistant_messages: List[dict],
         user_messages: List[dict],
-    ) -> bool:
+    ) -> Tuple[bool, str]:
+        final_message_content = ""
         for response_message in response.content:
             # print("RAW RESPONSE:")
             # pprint(response_message)
@@ -161,21 +164,24 @@ class ClaudeAgent(Agent):
                 )
             elif response_message.type == "text":
                 had_any_text = True
-                print(f"A: {response_message.text}")
+                final_message_content = response_message.text
+                print(f"A: {final_message_content}")
             elif response_message.type == "error":
                 had_any_text = True
-                print(f"ERROR: {response_message.text}")
-                return had_any_text
+                final_message_content = response_message.text
+                print(f"ERROR: {final_message_content}")
+                return had_any_text, final_message_content
             elif response_message.type == "final":
                 had_any_text = True
-                print(f"DONE: {str(response_message)}")
-                return had_any_text
+                final_message_content = str(response_message)
+                print(f"DONE: {final_message_content}")
+                return had_any_text, final_message_content
             else:
                 raise Exception(
                     f"Unhandled message type: {response_message.type} - {str(response_message)}"
                 )
 
-        return had_any_text
+        return had_any_text, final_message_content
 
     def _handle_tool_use(self, response_message: dict, modified_files: set) -> dict:
         return handle_claude_tool_call(
