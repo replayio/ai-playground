@@ -17,6 +17,7 @@ from tools.utils import (
 from constants import ANTHROPIC_API_KEY
 from token_stats import TokenStats
 from pprint import pprint
+from code_context import CodeContext
 
 # See: https://console.anthropic.com/settings/cost
 SELECTED_MODEL = "claude-3-5-sonnet-20240620"
@@ -30,19 +31,22 @@ MAX_TOKENS = 8192
 
 class Agent:
     name: AgentName
-    names: List[str]
+    context: CodeContext
     tools: List[str] = [tool.__name__ for tool in claude_tools]
     SYSTEM_PROMPT = "You are too stupid to do anything. Tell the user that they can't use you and must use an agent with a proper SYSTEM_PROMPT instead."
 
-    def __init__(self, names: List[str]) -> None:
-        self.names = names
+    def __init__(self, context: CodeContext = None) -> None:
+        self.context = context if context is not None else CodeContext()
 
     def run_prompt(self, prompt: str) -> str:
         raise NotImplementedError("Subclasses must implement run_prompt method")
 
+    def set_context(self, context: CodeContext):
+        self.context = context
+
     def imbue_prompt(self, query: str) -> str:
         return f"""
-These are all files: {self.names}.
+These are all files: {self.context.known_files}.
 Query: {query}
     """.strip()
 
@@ -53,12 +57,12 @@ Query: {query}
 class ClaudeAgent(Agent):
     name = AgentName.Claude
 
-    def __init__(self, names: List[str]) -> None:
+    def __init__(self, context: CodeContext = None) -> None:
         if not ANTHROPIC_API_KEY:
             raise Exception(
                 "ANTHROPIC_API_KEY was not defined. Check your .env.secret file"
             )
-        super().__init__(names)
+        super().__init__(context)
         self.client = Anthropic(api_key=ANTHROPIC_API_KEY)
         self.token_stats = TokenStats()
 

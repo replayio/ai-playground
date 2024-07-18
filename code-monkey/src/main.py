@@ -1,12 +1,14 @@
 from tools.utils import copy_src
 from agents import Coder
 from pprint import pprint
+from code_context import CodeContext
 # from constants import load_environment
 
 def main() -> None:
     print("Initializing...")
     names = copy_src()
     pprint(names)
+    code_context = CodeContext()
     coder = Coder(names)
 
     print("Go...\n")
