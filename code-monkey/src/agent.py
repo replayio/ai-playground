@@ -5,7 +5,8 @@ from anthropic.types import Message, MessageParam
 from tools.tools import (
     AgentName,
     handle_claude_tool_call,
-    claude_tools
+    claude_tools,
+    tools_by_name
 )
 from tools.utils import (
     ask_user,
@@ -30,6 +31,7 @@ MAX_TOKENS = 8192
 class Agent:
     name: AgentName
     names: List[str]
+    tools: List[str] = [tool.__name__ for tool in claude_tools]
     SYSTEM_PROMPT = "You are too stupid to do anything. Tell the user that they can't use you and must use an agent with a proper SYSTEM_PROMPT instead."
 
     def __init__(self, names: List[str]) -> None:
@@ -43,6 +45,9 @@ class Agent:
 These are all files: {self.names}.
 Query: {query}
     """.strip()
+
+    def makeTools(self):
+        return [tools_by_name[tool_name] for tool_name in self.tools if tool_name in tools_by_name]
 
 
 class ClaudeAgent(Agent):
@@ -118,7 +123,7 @@ class ClaudeAgent(Agent):
                 model=SELECTED_MODEL,
                 max_tokens=MAX_TOKENS,
                 messages=messages,
-                tools=claude_tools,
+                tools=self.makeTools(),
                 extra_headers=EXTRA_HEADERS,
             )
         except Exception as err:
