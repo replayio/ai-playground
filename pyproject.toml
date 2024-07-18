@@ -19,6 +19,7 @@ dependencies = [
     "anthropic>=0.31.0",
     "graphviz>=0.20.3",
     "pylint>=3.2.5",
+    "pathspec>=0.12.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"

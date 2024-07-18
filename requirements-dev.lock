@@ -158,6 +158,8 @@ packaging==24.1
     # via langchain-core
     # via marshmallow
     # via unstructured-client
+pathspec==0.12.1
+    # via ai-playground
 platformdirs==4.2.2
     # via pylint
 psutil==6.0.0
