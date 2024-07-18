@@ -91,6 +91,8 @@ class ClaudeAgent(Agent):
 
     def _process_response(self, response: Message, modified_files: set, had_any_text: bool, assistant_messages: List[dict], user_messages: List[dict]) -> bool:
         for response_message in response.content:
+            print("RAW RESPONSE:")
+            pprint(response_message)
             assistant_messages.append(response_message)
 
             if response_message.type == "tool_use":

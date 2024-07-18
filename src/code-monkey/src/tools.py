@@ -105,38 +105,6 @@ def replace_in_file(
     return f"Replacement successful. '{to_replace}' was replaced with '{replacement}'."
 
 
-openai_tools: List[Dict[str, Any]] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "read_file",
-            "description": "Read the contents of the file",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                },
-                "required": ["name"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "write_file",
-            "description": "Write content to the file",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "content": {"type": "string"},
-                },
-                "required": ["name", "content"],
-            },
-        },
-    },
-]
-
 # See https://docs.anthropic.com/en/docs/build-with-claude/tool-use
 claude_tools: List[Dict[str, Any]] = [
     {
@@ -165,21 +133,21 @@ claude_tools: List[Dict[str, Any]] = [
             "required": ["name"],
         },
     },
-    {
-        "name": "write_file",
-        "description": "Write content to the file of given name",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "name": {"type": "string", "description": "Name of the file to edit."},
-                "content": {
-                    "type": "string",
-                    "description": "New contents of the file.",
-                },
-            },
-            "required": ["name", "content"],
-        },
-    },
+    # {
+    #     "name": "write_file",
+    #     "description": "Write content to the file of given name",
+    #     "input_schema": {
+    #         "type": "object",
+    #         "properties": {
+    #             "name": {"type": "string", "description": "Name of the file to edit."},
+    #             "content": {
+    #                 "type": "string",
+    #                 "description": "New contents of the file.",
+    #             },
+    #         },
+    #         "required": ["name", "content"],
+    #     },
+    # },
     {
         "name": "ask_user",
         "description": "Ask the user a question and return their response",
