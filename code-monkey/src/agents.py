@@ -14,3 +14,4 @@ class Coder(ClaudeAgent):
 
 
 agents = [Coder]
+agents_by_name = {agent.__name__: agent for agent in agents}
