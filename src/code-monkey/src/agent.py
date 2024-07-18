@@ -15,6 +15,7 @@ from constants import ANTHROPIC_API_KEY, MAX_TOKENS, SYSTEM_PROMPT
 from token_stats import TokenStats
 from pprint import pprint
 
+
 class Agent:
     name: AgentName
     names: List[str]
@@ -36,6 +37,8 @@ class ClaudeAgent(Agent):
     name = AgentName.Claude
 
     def __init__(self, names: List[str]) -> None:
+        if not ANTHROPIC_API_KEY:
+            raise Exception("ANTHROPIC_API_KEY was not defined. Check your .env.secret file")
         super().__init__(names)
         self.client = Anthropic(api_key=ANTHROPIC_API_KEY)
         self.token_stats = TokenStats()
@@ -48,22 +51,40 @@ class ClaudeAgent(Agent):
         assistant_messages = []
         user_messages = []
 
-        while True:
-            response = self._get_claude_response(messages)
-            self.token_stats.update(response.usage.input_tokens, response.usage.output_tokens)
-            had_any_text = self._process_response(response, modified_files, had_any_text, assistant_messages, user_messages)
-            
-            if not len(user_messages):
-                # We are done when no more input is given to the assistant.
-                if self._handle_completion(had_any_text, modified_files):
-                    break
+        try:
+            while True:
+                response = self._get_claude_response(messages)
+                for response_message in response.content:
+                    self.token_stats.update(
+                        response.usage.input_tokens,
+                        response.usage.output_tokens,
+                        response_message.type,
+                        response_message.name if "name" in response_message else None,
+                    )
+                had_any_text = self._process_response(
+                    response,
+                    modified_files,
+                    had_any_text,
+                    assistant_messages,
+                    user_messages,
+                )
 
-            messages.extend([
-                {"role": "assistant", "content": assistant_messages},
-                {"role": "user", "content": user_messages}
-            ])
-            assistant_messages = []
-            user_messages = []
+                if not len(user_messages):
+                    # We are done when no more input is given to the assistant.
+                    if self._handle_completion(had_any_text, modified_files):
+                        break
+
+                messages.extend(
+                    [
+                        {"role": "assistant", "content": assistant_messages},
+                        {"role": "user", "content": user_messages},
+                    ]
+                )
+                assistant_messages = []
+                user_messages = []
+        except Exception as err:
+            self.token_stats.print_stats()
+            raise err
 
         self.token_stats.print_stats()
 
@@ -85,18 +106,29 @@ class ClaudeAgent(Agent):
                 extra_headers={"anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"},
             )
         except Exception as err:
+            print("##########################################################")
             print("PROMPT ERROR with the following messages:")
             pprint(messages)
+            print("##########################################################")
             raise err
 
-    def _process_response(self, response: Message, modified_files: set, had_any_text: bool, assistant_messages: List[dict], user_messages: List[dict]) -> bool:
+    def _process_response(
+        self,
+        response: Message,
+        modified_files: set,
+        had_any_text: bool,
+        assistant_messages: List[dict],
+        user_messages: List[dict],
+    ) -> bool:
         for response_message in response.content:
             print("RAW RESPONSE:")
             pprint(response_message)
             assistant_messages.append(response_message)
 
             if response_message.type == "tool_use":
-                user_messages.append(self._handle_tool_use(response_message, modified_files))
+                user_messages.append(
+                    self._handle_tool_use(response_message, modified_files)
+                )
             elif response_message.type == "text":
                 had_any_text = True
                 print(f"A: {response_message.text}")
@@ -109,7 +141,9 @@ class ClaudeAgent(Agent):
                 print(f"DONE: {str(response_message)}")
                 return had_any_text
             else:
-                raise Exception(f"Unhandled message type: {response_message.type} - {str(response_message)}")
+                raise Exception(
+                    f"Unhandled message type: {response_message.type} - {str(response_message)}"
+                )
 
         return had_any_text
 
@@ -136,7 +170,9 @@ class ClaudeAgent(Agent):
         original_file = os.path.join(src_dir, file)
         modified_file = os.path.join(artifacts_dir, file)
         show_diff(original_file, modified_file)
-        apply_changes = ask_user(f"Do you want to apply the changes to {file} (diff shown in VSCode)? (Y/n): ").lower()
+        apply_changes = ask_user(
+            f"Do you want to apply the changes to {file} (diff shown in VSCode)? (Y/n): "
+        ).lower()
         if apply_changes == "y" or apply_changes == "":
             self._apply_changes(original_file, modified_file)
             print(f"✅ Changes applied to {file}")

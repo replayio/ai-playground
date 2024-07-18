@@ -8,9 +8,9 @@ class TokenStats:
         self.total_output_tokens = 0
         self.token_history = deque()
         self.message_type_histogram = Counter()
-        self.tool_use_histogram = Counter()
+        self.message_name_histogram = Counter()
 
-    def update(self, input_tokens: int, output_tokens: int, message_type: str, tool_use: str = None):
+    def update(self, input_tokens: int, output_tokens: int, message_type: str, message_name: str = None):
         self.total_input_tokens += input_tokens
         self.total_output_tokens += output_tokens
 
@@ -23,8 +23,10 @@ class TokenStats:
 
         # Update histograms
         self.message_type_histogram[message_type] += input_tokens + output_tokens
-        if tool_use:
-            self.tool_use_histogram[tool_use] += input_tokens + output_tokens
+        if message_name:
+            self.message_name_histogram[f"{message_type}.{message_name}"] += (
+                input_tokens + output_tokens
+            )
 
     def check_rate_limit(self):
         if not self.token_history:
@@ -50,13 +52,13 @@ class TokenStats:
 
         total_tokens = self.total_input_tokens + self.total_output_tokens
 
-        print("\nTop 3 Message Type Contributors:")
+        print("\nTop 3 Contributors by Type:")
         for msg_type, tokens in self.message_type_histogram.most_common(3):
             percentage = (tokens / total_tokens) * 100
             print(f"{msg_type}: {tokens} tokens ({percentage:.2f}%)")
 
-        if self.tool_use_histogram:
-            print("\nTop 3 Tool Use Contributors:")
-            for tool, tokens in self.tool_use_histogram.most_common(3):
+        if self.message_name_histogram:
+            print("\nTop 3 Contributors by Name:")
+            for tool, tokens in self.message_name_histogram.most_common(3):
                 percentage = (tokens / total_tokens) * 100
                 print(f"{tool}: {tokens} tokens ({percentage:.2f}%)")

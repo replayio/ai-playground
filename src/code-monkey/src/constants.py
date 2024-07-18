@@ -7,12 +7,10 @@ artifacts_dir = os.path.join(src_dir, "..", "artifacts")
 # def load_environment():
 # Load environment variables from .env and .secret.env
 load_dotenv()
-if not load_dotenv(".env.secret"):
-    raise FileNotFoundError(".env.secret not found in cwd. Some features may not work correctly.")
+load_dotenv(".env.secret")
 
 # Load API keys
-global OPENAI_API_KEY, ANTHROPIC_API_KEY, MAX_TOKENS
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 MAX_TOKENS = int(os.getenv("MAX_TOKENS") or 1000)
 
