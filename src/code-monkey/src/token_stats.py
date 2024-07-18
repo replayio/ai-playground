@@ -1,6 +1,10 @@
 import time
 from collections import deque, Counter
 from constants import CLAUDE_RATE_LIMIT
+from anthropic.types import ContentBlock
+from typing import List
+
+TOP_N = 5
 
 class TokenStats:
     def __init__(self):
@@ -8,25 +12,29 @@ class TokenStats:
         self.total_output_tokens = 0
         self.token_history = deque()
         self.message_type_histogram = Counter()
-        self.message_name_histogram = Counter()
 
-    def update(self, input_tokens: int, output_tokens: int, message_type: str, message_name: str = None):
+    def update(
+        self,
+        input_tokens: int,
+        output_tokens: int,
+        message_contents: List[ContentBlock],
+    ):
         self.total_input_tokens += input_tokens
         self.total_output_tokens += output_tokens
 
         current_time = time.time()
         self.token_history.append((current_time, input_tokens + output_tokens))
-        
+
         # Remove entries older than 1 minute
         while self.token_history and current_time - self.token_history[0][0] > 60:
             self.token_history.popleft()
 
         # Update histograms
-        self.message_type_histogram[message_type] += input_tokens + output_tokens
-        if message_name:
-            self.message_name_histogram[f"{message_type}.{message_name}"] += (
-                input_tokens + output_tokens
-            )
+        type_label = "+".join(sorted(
+            [f"{m.type}.{m.name}" if hasattr(m, 'name') and m.name else m.type 
+             for m in message_contents]
+        ))
+        self.message_type_histogram[type_label] += input_tokens + output_tokens
 
     def check_rate_limit(self):
         if not self.token_history:
@@ -48,17 +56,13 @@ class TokenStats:
         print("\nToken Statistics:")
         print(f"Total input tokens: {self.total_input_tokens}")
         print(f"Total output tokens: {self.total_output_tokens}")
-        print(f"Tokens in last minute: {sum(tokens for _, tokens in self.token_history)}")
+        print(
+            f"Tokens in last minute: {sum(tokens for _, tokens in self.token_history)}"
+        )
 
         total_tokens = self.total_input_tokens + self.total_output_tokens
 
-        print("\nTop 3 Contributors by Type:")
-        for msg_type, tokens in self.message_type_histogram.most_common(3):
+        print(f"\nTop {TOP_N} Contributors by Type:")
+        for msg_type, tokens in self.message_type_histogram.most_common(TOP_N):
             percentage = (tokens / total_tokens) * 100
             print(f"{msg_type}: {tokens} tokens ({percentage:.2f}%)")
-
-        if self.message_name_histogram:
-            print("\nTop 3 Contributors by Name:")
-            for tool, tokens in self.message_name_histogram.most_common(3):
-                percentage = (tokens / total_tokens) * 100
-                print(f"{tool}: {tokens} tokens ({percentage:.2f}%)")

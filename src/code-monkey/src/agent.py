@@ -1,11 +1,13 @@
 import os
 from typing import List
 from anthropic import Anthropic
-from anthropic.types import Message
-from tools import (
+from anthropic.types import Message, MessageParam
+from tools.tools import (
     AgentName,
     handle_claude_tool_call,
-    claude_tools,
+    claude_tools
+)
+from tools.utils import (
     ask_user,
     show_diff,
     src_dir,
@@ -47,29 +49,31 @@ class ClaudeAgent(Agent):
 
     def __init__(self, names: List[str]) -> None:
         if not ANTHROPIC_API_KEY:
-            raise Exception("ANTHROPIC_API_KEY was not defined. Check your .env.secret file")
+            raise Exception(
+                "ANTHROPIC_API_KEY was not defined. Check your .env.secret file"
+            )
         super().__init__(names)
         self.client = Anthropic(api_key=ANTHROPIC_API_KEY)
         self.token_stats = TokenStats()
 
     def run_prompt(self, prompt: str) -> str:
         prompt = self._prepare_prompt(prompt)
-        messages = [{"role": "user", "content": prompt}]
         modified_files = set()
         had_any_text = False
         assistant_messages = []
-        user_messages = []
+        user_messages = [{"role": "user", "content": prompt}]
+        messages = user_messages
 
         try:
             while True:
                 response = self._get_claude_response(messages)
-                for response_message in response.content:
-                    self.token_stats.update(
-                        response.usage.input_tokens,
-                        response.usage.output_tokens,
-                        response_message.type,
-                        response_message.name if "name" in response_message else None,
-                    )
+                self.token_stats.update(
+                    response.usage.input_tokens,
+                    response.usage.output_tokens,
+                    response.content
+                )
+                assistant_messages = []
+                user_messages = []
 
                 # Debug-print stats
                 self.token_stats.print_stats()
@@ -93,8 +97,6 @@ class ClaudeAgent(Agent):
                         {"role": "user", "content": user_messages},
                     ]
                 )
-                assistant_messages = []
-                user_messages = []
         except Exception as err:
             self.token_stats.print_stats()
             raise err
@@ -106,7 +108,7 @@ class ClaudeAgent(Agent):
         print(f'Q: "{prompt}"')
         return self.imbue_prompt(prompt)
 
-    def _get_claude_response(self, messages: List[dict]) -> Message:
+    def _get_claude_response(self, messages: List[MessageParam]) -> Message:
         self.token_stats.check_rate_limit()
         try:
             return self.client.messages.create(
@@ -134,8 +136,8 @@ class ClaudeAgent(Agent):
         user_messages: List[dict],
     ) -> bool:
         for response_message in response.content:
-            print("RAW RESPONSE:")
-            pprint(response_message)
+            # print("RAW RESPONSE:")
+            # pprint(response_message)
             assistant_messages.append(response_message)
 
             if response_message.type == "tool_use":
