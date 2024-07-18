@@ -9,7 +9,7 @@ def main() -> None:
     print("Go...\n")
 
     # prompt = "Fix the exec tool in tools.py: Remember all previously approved exec calls. If the user approved them in the past, don't check again."
-    prompt = "Run deps.py and fix it if it does not work."
+    prompt = "Fix token_stats.py: It is delaying for too much. Can you compute the required delay more accurately?"
     # prompt = "Use the exec tool to execute uml.py."
     # prompt = "Modify uml.py: use pyreverse instead of astroid."
     # prompt = "Run tests for copy_src in tools.py and fix things if they fail."
