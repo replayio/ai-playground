@@ -20,7 +20,7 @@ class RgTool(Tool):
         "required": ["pattern"],
     }
 
-    def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
+    def handle_tool_call(self, input: Dict[str, Any]) -> str:
         pattern = input["pattern"]
         try:
             result = subprocess.run(
@@ -29,7 +29,7 @@ class RgTool(Tool):
                 text=True,
                 check=True,
             )
-            return result.stdout
+            return result.stdout if result.stdout.strip() else "0 matches found."
         except subprocess.CalledProcessError as e:
             if e.returncode == 1:  # No matches
                 return "0 matches found."
