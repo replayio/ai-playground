@@ -1,5 +1,5 @@
 from tools.utils import copy_src
-from agent import ClaudeAgent
+from agents import Coder
 from pprint import pprint
 # from constants import load_environment
 
@@ -7,12 +7,11 @@ def main() -> None:
     print("Initializing...")
     names = copy_src()
     pprint(names)
-    claude_agent = ClaudeAgent(names)
+    coder = Coder(names)
 
     print("Go...\n")
 
-    # prompt = "Fix main.py comments"
-    prompt = "Add a test for the RGTool. Make sure it works."
+    prompt = "1. Modify agents.py: Create a new agents_by_name dict from the agents list."
 
     # prompt = "Improve tests for deps.py. Run them and fix everything."
 
@@ -33,7 +32,7 @@ def main() -> None:
 
     # TODO:
     # prompt = "Run tests for copy_src in tools.py and fix things if they fail."
-    claude_agent.run_prompt(prompt)
+    coder.run_prompt(prompt)
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ from tools.utils import (
     src_dir,
     artifacts_dir,
 )
-from constants import ANTHROPIC_API_KEY, SYSTEM_PROMPT
+from constants import ANTHROPIC_API_KEY
 from token_stats import TokenStats
 from pprint import pprint
 
@@ -30,6 +30,7 @@ MAX_TOKENS = 8192
 class Agent:
     name: AgentName
     names: List[str]
+    SYSTEM_PROMPT = "You are too stupid to do anything. Tell the user that they can't use you and must use an agent with a proper SYSTEM_PROMPT instead."
 
     def __init__(self, names: List[str]) -> None:
         self.names = names
@@ -113,7 +114,7 @@ class ClaudeAgent(Agent):
         try:
             return self.client.messages.create(
                 temperature=0,
-                system=SYSTEM_PROMPT,
+                system=self.SYSTEM_PROMPT,
                 model=SELECTED_MODEL,
                 max_tokens=MAX_TOKENS,
                 messages=messages,
