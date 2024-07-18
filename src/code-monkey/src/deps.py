@@ -1,21 +1,62 @@
 import os
 import ast
+from typing import List, Dict, Optional
+from enum import Enum
 from constants import artifacts_dir
 
+class DependencyType(Enum):
+    IMPORT = 1
+    FUNCTION = 2
+    CLASS = 3
+    VARIABLE = 4
+
 class Dependency:
-    def __init__(self, name, imports=None, constructs=None):
-        self.name = name
-        self.imports = imports or []
-        self.constructs = constructs or []
+    """
+    Represents a top-level symbol dependency.
+    """
+    def __init__(self, name: str, dep_type: DependencyType):
+        self.name: str = name
+        self.dep_type: DependencyType = dep_type
+
+class Module:
+    """
+    Represents a module with its dependencies and exploration status.
+    """
+    def __init__(self, name: str):
+        self.name: str = name
+        self.dependencies: List[Dependency] = []
+        self.explored: bool = False
 
 class DependencyGraph:
-    def __init__(self):
-        self.dependencies = {}
+    """
+    Represents a graph of dependencies between modules.
+    """
+    def __init__(self, module_names: Optional[List[str]] = None, full_graph: Optional['DependencyGraph'] = None):
+        self.modules: Dict[str, Module] = {}
+        if module_names and full_graph:
+            for name in module_names:
+                if name in full_graph.modules:
+                    self.modules[name] = full_graph.modules[name]
 
-    def add_dependency(self, name, imports, constructs):
-        self.dependencies[name] = Dependency(name, imports, constructs)
+    def add_module(self, name: str) -> None:
+        """
+        Add a new module to the graph if it doesn't exist.
+        """
+        if name not in self.modules:
+            self.modules[name] = Module(name)
 
-    def get_imports(self, file_path):
+    def add_dependency(self, module_name: str, dep_name: str, dep_type: DependencyType) -> None:
+        """
+        Add a dependency to a module in the graph.
+        """
+        self.add_module(module_name)
+        self.modules[module_name].dependencies.append(Dependency(dep_name, dep_type))
+        self.modules[module_name].explored = True
+
+    def get_imports(self, file_path: str) -> List[str]:
+        """
+        Extract imports from a Python file.
+        """
         with open(file_path, 'r') as file:
             tree = ast.parse(file.read())
         
@@ -31,7 +72,10 @@ class DependencyGraph:
         
         return imports
 
-    def get_top_level_constructs(self, file_path):
+    def get_top_level_constructs(self, file_path: str) -> List[str]:
+        """
+        Extract top-level constructs from a Python file.
+        """
         with open(file_path, 'r') as file:
             tree = ast.parse(file.read())
         
@@ -46,26 +90,43 @@ class DependencyGraph:
         
         return constructs
 
-    def analyze_repository(self, repo_path):
+    def analyze_repository(self, repo_path: str, partial: bool = False) -> None:
+        """
+        Analyze the repository and build the dependency graph.
+        If partial is True, only analyze unexplored modules.
+        """
         for root, _, files in os.walk(repo_path):
             for file in files:
                 if file.endswith('.py'):
                     file_path = os.path.join(root, file)
                     module_name = os.path.splitext(file)[0]
-                    imports = self.get_imports(file_path)
-                    constructs = self.get_top_level_constructs(file_path)
-                    self.add_dependency(module_name, imports, constructs)
+                    
+                    self.add_module(module_name)
+                    
+                    if not partial or not self.modules[module_name].explored:
+                        imports = self.get_imports(file_path)
+                        constructs = self.get_top_level_constructs(file_path)
+                        
+                        for imp in imports:
+                            self.add_dependency(module_name, imp, DependencyType.IMPORT)
+                        
+                        for construct in constructs:
+                            if construct in imports:
+                                continue
+                            self.add_dependency(module_name, construct, DependencyType.FUNCTION)  # Assume function for simplicity
 
-    def print_dependencies(self):
+    def print_dependencies(self) -> None:
+        """
+        Print the dependencies of all modules in the graph.
+        """
         print("\nModule dependencies:")
-        for module, dependency in self.dependencies.items():
-            print(f"{module}:")
-            print("  Imports:")
-            for imp in dependency.imports:
-                print(f"    -> {imp}")
-            print("  Constructs:")
-            for construct in dependency.constructs:
-                print(f"    - {construct}")
+        for module_name, module in self.modules.items():
+            print(f"{module_name} (Explored: {module.explored}):")
+            if module.dependencies:
+                for dep in module.dependencies:
+                    print(f"  -> {dep.name} ({dep.dep_type.name})")
+            else:
+                print("  Not analyzed")
             print()
 
 if __name__ == "__main__":

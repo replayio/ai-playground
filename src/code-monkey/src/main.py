@@ -13,7 +13,7 @@ def main() -> None:
 
     print("Go...\n")
 
-    prompt = "Add a default execution block to deps.py that will print the default graph."
+    prompt = "1. Modify deps.py: Remove get_partial_graph and replace it with a constructor of DependencyGraph that does the same thing. 2. Check result with tests."
     # prompt = "Run tests for copy_src in tools.py and fix things if they fail."
 
     claude_agent.run_prompt(prompt)
