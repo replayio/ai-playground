@@ -18,7 +18,7 @@ class WriteFileTool(IOTool):
         "required": ["fname", "content"],
     }
 
-    def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
+    def handle_tool_call(self, input: Dict[str, Any]) -> str | None:
         name = input["fname"]
         content = input["content"]
         file_path = make_file_path(name)
@@ -26,3 +26,4 @@ class WriteFileTool(IOTool):
         with open(file_path, "w") as file:
             file.write(content)
         self.track_modified_file(file_path)
+        return f"File written successfully: {file_path}"

@@ -13,10 +13,15 @@ class ReadFileTool(IOTool):
         "required": ["fname"],
     }
 
-    def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
+    def handle_tool_call(self, input: Dict[str, Any]) -> str | None:
         name = input["fname"]
         file_path = make_file_path(name)
-        with open(file_path, "r") as file:
-            content = file.read()
-        self.track_modified_file(file_path)
-        return content
+        try:
+            with open(file_path, "r") as file:
+                content = file.read()
+            self.track_modified_file(file_path)
+            return content
+        except FileNotFoundError:
+            return f"Error: File '{name}' not found."
+        except IOError:
+            return f"Error: Unable to read file '{name}'."

@@ -20,15 +20,15 @@ class InvokeAgentTool(Tool):
         super().__init__()
         self.agent_names = agent_names
 
-    def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
+    def handle_tool_call(self, input: Dict[str, Any]) -> str | None:
         agent_name = input.get("agent_name")
         prompt = input.get("prompt")
 
         if agent_name in self.agent_names:
             agent_class = agents_by_name.get(agent_name)
             if agent_class:
-                agent = agent_class([])  # Pass an empty list for now
+                agent = agent_class()  # Create agent without passing arguments
                 result = agent.run_prompt(prompt)
-                return {"result": result}
+                return str(result)
 
-        return {"error": f"Agent '{agent_name}' not found or not allowed."}
+        return f"Error: Agent '{agent_name}' not found or not allowed."
