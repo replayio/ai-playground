@@ -11,9 +11,18 @@ from tools import (
     src_dir,
     artifacts_dir,
 )
-from constants import ANTHROPIC_API_KEY, MAX_TOKENS, SYSTEM_PROMPT
+from constants import ANTHROPIC_API_KEY, SYSTEM_PROMPT
 from token_stats import TokenStats
 from pprint import pprint
+
+# See: https://console.anthropic.com/settings/cost
+SELECTED_MODEL = "claude-3-5-sonnet-20240620"
+EXTRA_HEADERS = {"anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"}
+MAX_TOKENS = 8192
+
+# SELECTED_MODEL = "claude-3-sonnet-20240229"
+# EXTRA_HEADERS = None
+# MAX_TOKENS = 4096
 
 
 class Agent:
@@ -99,11 +108,11 @@ class ClaudeAgent(Agent):
             return self.client.messages.create(
                 temperature=0,
                 system=SYSTEM_PROMPT,
-                model="claude-3-5-sonnet-20240620",
+                model=SELECTED_MODEL,
                 max_tokens=MAX_TOKENS,
                 messages=messages,
                 tools=claude_tools,
-                extra_headers={"anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"},
+                extra_headers=EXTRA_HEADERS,
             )
         except Exception as err:
             print("##########################################################")
