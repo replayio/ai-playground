@@ -70,6 +70,10 @@ class ClaudeAgent(Agent):
                         response_message.type,
                         response_message.name if "name" in response_message else None,
                     )
+
+                # Debug-print stats
+                self.token_stats.print_stats()
+
                 had_any_text = self._process_response(
                     response,
                     modified_files,

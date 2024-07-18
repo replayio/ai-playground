@@ -2,7 +2,7 @@ import os
 import shutil
 import traceback
 from enum import Enum
-from typing import List, Dict, Set, Any
+from typing import List, Dict, Set, Any, Type
 import subprocess
 from deps import DependencyGraph
 
@@ -53,24 +53,40 @@ def copy_src() -> List[str]:
     return list(get_file_tree(dest_dir))
 
 
+def show_diff(original_file: str, modified_file: str) -> str:
+    if os.path.exists(original_file) and os.path.exists(modified_file):
+        subprocess.run(
+            ["code", "--diff", original_file, modified_file],
+            capture_output=True,
+            text=True,
+        )
+    elif os.path.exists(modified_file):
+        subprocess.run(["code", modified_file], capture_output=True, text=True)
+    elif os.path.exists(original_file):
+        print("File deleted.")
+    else:
+        raise Exception(
+            f"Could not diff files. Neither file exists: {original_file} and {modified_file}"
+        )
+
+
+
 class Tool:
     name: str
     description: str
     input_schema: Dict[str, Any]
 
-    @classmethod
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any]:
         raise NotImplementedError("Subclasses must implement handle_tool_call method")
 
 
 class IOTool(Tool):
-    modified_files: Set[str] = set()
+    def __init__(self):
+        self.modified_files: Set[str] = set()
 
-    @classmethod
     def track_modified_file(self, file_path: str):
         self.modified_files.add(os.path.relpath(file_path, artifacts_dir))
 
-    @classmethod
     def clear_modified_files(self):
         self.modified_files.clear()
 
@@ -90,7 +106,6 @@ class GetDependenciesTool(Tool):
         "required": ["module_names"],
     }
 
-    @classmethod
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any]:
         module_names = input["module_names"]
         module_paths = [
@@ -115,7 +130,6 @@ class ReadFileTool(IOTool):
         "required": ["fname"],
     }
 
-    @classmethod
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any]:
         name = input["fname"]
         file_path = make_file_path(name)
@@ -140,7 +154,6 @@ class WriteFileTool(IOTool):
         "required": ["fname", "content"],
     }
 
-    @classmethod
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any]:
         name = input["fname"]
         content = input["content"]
@@ -149,7 +162,7 @@ class WriteFileTool(IOTool):
         with open(file_path, "w") as file:
             file.write(content)
         self.track_modified_file(file_path)
-        return {}
+        return {"success": True}
 
 
 class AskUserTool(Tool):
@@ -166,7 +179,6 @@ class AskUserTool(Tool):
         "required": ["prompt"],
     }
 
-    @classmethod
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any]:
         prompt = input["prompt"]
         print(prompt)
@@ -193,7 +205,6 @@ class ReplaceInFileTool(IOTool):
         "required": ["fname", "to_replace", "replacement"],
     }
 
-    @classmethod
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any]:
         name = input["fname"]
         to_replace = input["to_replace"]
@@ -215,6 +226,7 @@ class ReplaceInFileTool(IOTool):
 
         self.track_modified_file(file_path)
         return {
+            "success": True,
             "message": f"Replacement successful. '{to_replace}' was replaced with '{replacement}'.",
         }
 
@@ -234,7 +246,6 @@ class RenameFileTool(IOTool):
         "required": ["old_name", "new_name"],
     }
 
-    @classmethod
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any]:
         old_name = input["old_name"]
         new_name = input["new_name"]
@@ -253,7 +264,7 @@ class RenameFileTool(IOTool):
         os.rename(old_path, new_path)
         self.track_modified_file(old_path)
         self.track_modified_file(new_path)
-        return {}
+        return {"success": True}
 
 
 class DeleteFileTool(IOTool):
@@ -270,7 +281,6 @@ class DeleteFileTool(IOTool):
         "required": ["fname"],
     }
 
-    @classmethod
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any]:
         name = input["fname"]
         file_path = make_file_path(name)
@@ -280,7 +290,7 @@ class DeleteFileTool(IOTool):
 
         os.remove(file_path)
         self.track_modified_file(file_path)
-        return {}
+        return {"success": True}
 
 
 class CreateFileTool(IOTool):
@@ -301,7 +311,6 @@ class CreateFileTool(IOTool):
         "required": ["fname"],
     }
 
-    @classmethod
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any]:
         name = input["fname"]
         content = input.get("content", "")
@@ -316,7 +325,7 @@ class CreateFileTool(IOTool):
             file.write(content)
 
         self.track_modified_file(file_path)
-        return {}
+        return {"success": True}
 
 
 class RunTestTool(Tool):
@@ -333,7 +342,6 @@ class RunTestTool(Tool):
         "required": ["fname"],
     }
 
-    @classmethod
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any]:
         name = input["fname"]
         file_path = make_file_path(name)
@@ -370,7 +378,6 @@ class RgTool(Tool):
         "required": ["pattern"],
     }
 
-    @classmethod
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any]:
         pattern = input["pattern"]
         try:
@@ -391,7 +398,6 @@ class RgTool(Tool):
 # Set to store approved commands
 approved_commands = set()
 
-
 class ExecTool(Tool):
     name = "exec"
     description = "Execute a command in the terminal"
@@ -403,7 +409,6 @@ class ExecTool(Tool):
         "required": ["command"],
     }
 
-    @classmethod
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any]:
         command = input["command"]
         file_tree = get_file_tree(artifacts_dir)
@@ -439,8 +444,14 @@ class ExecTool(Tool):
             raise Exception(error_message)
 
 
-# Updated claude_tools list
-claude_tools = [
+def get_tool_spec(tool_class: Type[Tool]) -> Dict[str, Any]:
+    return {
+        "name": tool_class.name,
+        "description": tool_class.description,
+        "input_schema": tool_class.input_schema,
+    }
+
+all_tool_classes = [
     GetDependenciesTool,
     ReadFileTool,
     WriteFileTool,
@@ -454,6 +465,10 @@ claude_tools = [
     ExecTool,
 ]
 
+tools_by_name: Dict[str, Type[Tool]] = {tool.name: tool for tool in all_tool_classes}
+
+claude_tools: List[Dict[str, Any]] = [get_tool_spec(tool) for tool in all_tool_classes]
+
 
 def handle_claude_tool_call(
     agent: AgentName,
@@ -464,19 +479,21 @@ def handle_claude_tool_call(
 ) -> List[Dict[str, Any]]:
     result = {"type": "tool_result", "tool_use_id": id}
     try:
-        tool_class = next(
-            (tool for tool in claude_tools if tool.name == function_name), None
-        )
+        tool_class = tools_by_name.get(function_name)
         if tool_class is None:
             raise Exception(f"Unknown function: {function_name}")
 
-        call_result = tool_class.handle_tool_call(input)
+        # Instantiate the tool
+        tool_instance = tool_class()
+
+        # Call the handle_tool_call method on the instance
+        call_result = tool_instance.handle_tool_call(input)
         result["content"] = call_result
 
         # Add modified files to the parameter
-        if issubclass(tool_class, IOTool):
-            modified_files.update(tool_class.modified_files)
-            tool_class.clear_modified_files()
+        if isinstance(tool_instance, IOTool):
+            modified_files.update(tool_instance.modified_files)
+            tool_instance.clear_modified_files()
 
     except Exception as err:
         print(f"TOOL CALL ERROR: {traceback.format_exc()}")
