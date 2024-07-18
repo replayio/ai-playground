@@ -1,22 +1,29 @@
-from typing import Dict, Type
-from .tools import tools_by_name
+from typing import Dict, Any
+from pydantic import BaseModel, Field
+from .tool import Tool
 from ..agent import Agent
+from ..agents import agents_by_name
 
-class InvokeAgentTool:
+class InvokeAgentInput(BaseModel):
+    agent_name: str = Field(..., description="Name of the agent to invoke")
+    prompt: str = Field(..., description="Prompt to run with the agent")
+
+class InvokeAgentTool(Tool):
     """
     A tool for invoking other agents by name and running them with a given prompt.
     """
+    name = "invoke_agent"
+    description = "Invokes another agent by name and runs it with a given prompt"
+    input_schema = InvokeAgentInput
 
-    def __init__(self):
-        self.agents_by_name: Dict[str, Type[Agent]] = {
-            name: tool for name, tool in tools_by_name.items()
-            if isinstance(tool, type) and issubclass(tool, Agent)
-        }
+    def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
+        agent_name = input.get("agent_name")
+        prompt = input.get("prompt")
 
-    def __call__(self, agentName: str, prompt: str) -> str:
-        agent_class = self.agents_by_name.get(agentName)
+        agent_class = agents_by_name.get(agent_name)
         if agent_class:
-            agent = agent_class()
-            return agent.run(prompt)
+            agent = agent_class([])  # Pass an empty list for now
+            result = agent.run_prompt(prompt)
+            return {"result": result}
         else:
-            return f"Agent '{agentName}' not found."
+            return {"error": f"Agent '{agent_name}' not found."}
