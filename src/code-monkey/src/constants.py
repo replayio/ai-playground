@@ -7,7 +7,7 @@ artifacts_dir = os.path.join(src_dir, "..", "artifacts")
 # Load environment variables from .env and .secret.env
 load_dotenv()
 if not load_dotenv(".env.secret"):
-    raise Exception(".env.secret not found in cwd")
+    print("WARNING: .env.secret not found in cwd. Some features may not work correctly.")
 
 # Load API keys
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -24,11 +24,6 @@ SYSTEM_PROMPT = """
 6. If you have low confidence in a response or don't understand an instruction, explain why and use the ask_user tool to gather clarifications.
 7. Don't retry failed commands.
 """
-
-if not OPENAI_API_KEY or not ANTHROPIC_API_KEY:
-    raise ValueError(
-        "API keys not found. Please check your .env and .secret.env files."
-    )
 
 # Claude rate limit
 CLAUDE_RATE_LIMIT = 40000  # tokens per minute
