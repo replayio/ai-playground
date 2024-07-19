@@ -135,13 +135,12 @@ class DependencyGraph:
         for dep in dependencies:
             if isinstance(dep, DependencyImport):
                 self.add_dependency(
-                    module_name,
-                    f"{dep.module}.{dep.name}",
+                    dep.module_name,
+                    dep.name,
                     None,
                     0,
                     0
                 )
-                dep.module_name = dep.module  # Ensure module_name is set correctly
             else:
                 self.add_dependency(
                     module_name,
@@ -177,20 +176,22 @@ class DependencyGraph:
             dependency = Dependency(
                 module_name, full_name.split('.')[-1], dep_type, start_index, end_index
             )
+        else:
+            dependency = DependencyImport(module_name, full_name.split('.')[-1])
 
-            # Check if the dependency already exists
-            existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.full_name == dependency.full_name), None)
+        # Check if the dependency already exists
+        existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.full_name == dependency.full_name), None)
 
-            if existing_dep:
-                # Update the existing dependency if necessary
-                existing_dep.dep_type = dep_type
+        if existing_dep:
+            # Update the existing dependency if necessary
+            if isinstance(existing_dep, Dependency):
                 existing_dep.start_index = start_index
                 existing_dep.end_index = end_index
-            else:
-                self.modules[module_name].dependencies.append(dependency)
+        else:
+            self.modules[module_name].dependencies.append(dependency)
 
-            # Update lookup tables
-            self.dep_lookup[full_name] = dependency
+        # Update lookup tables
+        self.dep_lookup[full_name] = dependency
 
         self.modules[module_name].explored = True
 
