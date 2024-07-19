@@ -294,8 +294,10 @@ class DependencyGraph:
                     if (dep.name == name and dep.module_name == module_name) or \
                        (dep.name == dep_name) or \
                        (dep.name == name and not dep.module_name):
-                        if importing_module != module_name:  # Exclude self-imports
-                            importers.add(importing_module)
+                        importers.add(importing_module)
+                elif dep.dep_type in (DependencyType.FUNCTION, DependencyType.CLASS, DependencyType.VARIABLE):
+                    if dep.name == name and not module_name:
+                        importers.add(importing_module)
         return importers
 
 
