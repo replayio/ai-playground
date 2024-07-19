@@ -29,9 +29,9 @@ class Dependency:
         self.module_name: str = module_name
         self.name: str = name
         if dep_type == DependencyType.IMPORT:
-            self.dep_name: str = name if name in sys.stdlib_module_names else f"{module_name}.{name}"
-        else:
             self.dep_name: str = name
+        else:
+            self.dep_name: str = f"{module_name}.{name}"
         self.dep_type: DependencyType = dep_type
         self.start_index: int = start_index
         self.end_index: int = end_index
@@ -125,21 +125,20 @@ class DependencyGraph:
         for dep_name in dependencies:
             if dep_name in sys.stdlib_module_names or dep_name == 'sys.path':
                 dep_type = DependencyType.IMPORT
-                name_to_add = dep_name
             elif '.' in dep_name:
                 dep_type = DependencyType.IMPORT
-                # For imports from other files, keep the full name
-                name_to_add = dep_name
+                # For imports, keep the full name without adding the current module name
+                full_dep_name = dep_name
             elif dep_name.isupper():
                 dep_type = DependencyType.VARIABLE
-                name_to_add = dep_name
+                full_dep_name = f"{module_name}.{dep_name}"
             else:
                 dep_type = DependencyType.FUNCTION
-                name_to_add = dep_name
+                full_dep_name = f"{module_name}.{dep_name}"
 
             self.add_dependency(
                 module_name,
-                name_to_add,
+                full_dep_name,
                 dep_type,
                 0,  # Use 0 as default start_index
                 0   # Use 0 as default end_index
@@ -169,10 +168,10 @@ class DependencyGraph:
 
         # For imports, use the full dep_name as provided
         # For other types, use only the name without module prefix
-        full_dep_name = dep_name if dep_type == DependencyType.IMPORT else dep_name.split('.')[-1]
+        full_dep_name = dep_name if dep_type == DependencyType.IMPORT else f"{module_name}.{dep_name}"
 
         dependency = Dependency(
-            module_name, full_dep_name, dep_type, start_index, end_index
+            module_name, dep_name, dep_type, start_index, end_index
         )
 
         # Check if the dependency already exists
@@ -187,7 +186,7 @@ class DependencyGraph:
             self.modules[module_name].dependencies.append(dependency)
 
         # Update lookup tables
-        self.dep_lookup[dependency.dep_name] = dependency
+        self.dep_lookup[full_dep_name] = dependency
 
         # Update imported_by for imports, ensuring a module doesn't appear in its own imported_by set
         if dep_type == DependencyType.IMPORT and module_name != dep_name:
@@ -219,6 +218,7 @@ class DependencyGraph:
             elif isinstance(node, ast.ImportFrom):
                 module = node.module or ''
                 for alias in node.names:
+                    # For imports from other files, use only the module name
                     full_name = f"{module}.{alias.name}" if module else alias.name
                     add_dependency(full_name)
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
