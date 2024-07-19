@@ -184,7 +184,6 @@ class DependencyGraph:
             existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.name == dependency.name and isinstance(dep, Dependency)), None)
         else:
             dependency = DependencyImport(module_name, name)
-            dependency.module_name = module_name  # Ensure the module_name attribute is set correctly
             # Check if the dependency already exists
             existing_dep = next((dep for dep in self.modules[module_name].dependency_imports if dep.name == dependency.name and isinstance(dep, DependencyImport)), None)
 
