@@ -134,7 +134,7 @@ class DependencyGraph:
                 full_dep_name = f"{module_name}.{dep_name}"
             else:
                 dep_type = DependencyType.FUNCTION
-                full_dep_name = f"{module_name}.{dep_name}"
+                # Keep function names as they are, without prefixing with module_name
 
             self.add_dependency(
                 module_name,
@@ -168,7 +168,7 @@ class DependencyGraph:
 
         # For imports, use the full dep_name as provided
         # For other types, use only the name without module prefix
-        full_dep_name = dep_name if dep_type == DependencyType.IMPORT else f"{module_name}.{dep_name}"
+        full_dep_name = dep_name if dep_type == DependencyType.IMPORT else dep_name
 
         dependency = Dependency(
             module_name, dep_name, dep_type, start_index, end_index
