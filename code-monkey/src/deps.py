@@ -286,16 +286,17 @@ class DependencyGraph:
         """
         Get the set of modules that import the given dependency.
         """
-        # Handle both standard library and non-standard imports
-        if '.' in dep_name:
-            return self.imported_by.get(dep_name, set())
-        else:
-            return set(
-                importer
-                for full_dep, importers in self.imported_by.items()
-                if full_dep.endswith(f".{dep_name}") or full_dep == dep_name
-                for importer in importers
-            )
+        importers = set()
+
+        # Handle both full and short dependency names
+        for full_dep, dep_importers in self.imported_by.items():
+            if full_dep == dep_name or full_dep.endswith(f".{dep_name}"):
+                importers.update(dep_importers)
+                # Include the module where the dependency is defined
+                if '.' in full_dep:
+                    importers.add(full_dep.split('.')[0])
+
+        return importers
 
 
 if __name__ == "__main__":
