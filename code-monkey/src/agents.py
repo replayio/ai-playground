@@ -2,7 +2,6 @@ from agent import ClaudeAgent, ToolUser
 from tools.invoke_agent_tool import InvokeAgentTool
 from tools.read_file_tool import ReadFileTool
 from tools.write_file_tool import WriteFileTool
-from tools.list_files_tool import ListFilesTool
 from tools.create_file_tool import CreateFileTool
 from tools.rename_file_tool import RenameFileTool
 from tools.delete_file_tool import DeleteFileTool
@@ -25,7 +24,6 @@ class Coder(ClaudeAgent):
     tools = [
         ToolUser(ReadFileTool, []),
         ToolUser(WriteFileTool, []),
-        ToolUser(ListFilesTool, []),
         ToolUser(CreateFileTool, []),
         ToolUser(RenameFileTool, []),
         ToolUser(DeleteFileTool, []),
