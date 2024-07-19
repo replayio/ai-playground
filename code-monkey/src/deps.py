@@ -28,7 +28,10 @@ class Dependency:
     ):
         self.module_name: str = module_name
         self.name: str = name
-        self.dep_name: str = f"{module_name}.{name}" if module_name and name not in sys.stdlib_module_names else name
+        if dep_type == DependencyType.IMPORT:
+            self.dep_name: str = f"{module_name}.{name}" if module_name and name not in sys.stdlib_module_names else name
+        else:
+            self.dep_name: str = name
         self.dep_type: DependencyType = dep_type
         self.start_index: int = start_index
         self.end_index: int = end_index
@@ -122,30 +125,24 @@ class DependencyGraph:
         for dep_name in dependencies:
             if dep_name in sys.stdlib_module_names or dep_name == 'sys.path':
                 dep_type = DependencyType.IMPORT
-                # For standard library imports, use the dep_name directly
-                self.add_dependency(
-                    module_name,
-                    dep_name,
-                    dep_type,
-                    0,  # Use 0 as default start_index
-                    0   # Use 0 as default end_index
-                )
+            elif '.' in dep_name:
+                dep_type = DependencyType.IMPORT
+            elif dep_name.isupper():
+                dep_type = DependencyType.VARIABLE
             else:
-                if '.' in dep_name:
-                    dep_type = DependencyType.IMPORT
-                elif dep_name.isupper():
-                    dep_type = DependencyType.VARIABLE
-                else:
-                    dep_type = DependencyType.FUNCTION
+                dep_type = DependencyType.FUNCTION
 
-                # For non-standard library imports, don't prefix with module_name
-                self.add_dependency(
-                    module_name,
-                    dep_name,
-                    dep_type,
-                    0,  # Use 0 as default start_index
-                    0   # Use 0 as default end_index
-                )
+            # For imports, use the full dep_name
+            # For functions and variables, use only the name without module prefix
+            name_to_add = dep_name if dep_type == DependencyType.IMPORT else dep_name.split('.')[-1]
+
+            self.add_dependency(
+                module_name,
+                name_to_add,
+                dep_type,
+                0,  # Use 0 as default start_index
+                0   # Use 0 as default end_index
+            )
 
         self.modules[module_name].explored = True
 
@@ -168,12 +165,19 @@ class DependencyGraph:
         Add a dependency to a module in the graph.
         """
         self.add_module(module_name)
+
+        # For imports, prefix with module_name if it's not a standard library import
+        if dep_type == DependencyType.IMPORT and dep_name not in sys.stdlib_module_names:
+            full_dep_name = f"{module_name}.{dep_name}"
+        else:
+            full_dep_name = dep_name
+
         dependency = Dependency(
             module_name, dep_name, dep_type, start_index, end_index
         )
 
         # Check if the dependency already exists
-        existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.dep_name == dependency.dep_name), None)
+        existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.dep_name == full_dep_name), None)
 
         if existing_dep:
             # Update the existing dependency if necessary
@@ -184,11 +188,11 @@ class DependencyGraph:
             self.modules[module_name].dependencies.append(dependency)
 
         # Update lookup tables
-        self.dep_lookup[dependency.dep_name] = dependency
+        self.dep_lookup[full_dep_name] = dependency
 
         # Update imported_by, ensuring a module doesn't appear in its own imported_by set
-        if module_name != dependency.name:
-            self.imported_by[dependency.name].add(module_name)
+        if module_name != dep_name:
+            self.imported_by[dep_name].add(module_name)
 
         self.modules[module_name].explored = True
 
