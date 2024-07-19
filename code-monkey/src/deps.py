@@ -290,9 +290,12 @@ class DependencyGraph:
         importers = set()
         for importing_module, module in self.modules.items():
             for dep in module.dependencies:
-                if dep.name == name and dep.module_name == module_name:
-                    if importing_module != module_name:  # Exclude self-imports
-                        importers.add(importing_module)
+                if dep.dep_type == DependencyType.IMPORT:
+                    if (dep.name == name and dep.module_name == module_name) or \
+                       (dep.name == dep_name) or \
+                       (dep.name == name and not dep.module_name):
+                        if importing_module != module_name:  # Exclude self-imports
+                            importers.add(importing_module)
         return importers
 
 
