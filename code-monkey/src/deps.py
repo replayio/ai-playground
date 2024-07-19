@@ -31,7 +31,7 @@ class Dependency:
         if dep_type == DependencyType.IMPORT:
             self.dep_name: str = name if name in sys.stdlib_module_names else f"{module_name}.{name}"
         else:
-            self.dep_name: str = f"{module_name}.{name}"
+            self.dep_name: str = name
         self.dep_type: DependencyType = dep_type
         self.start_index: int = start_index
         self.end_index: int = end_index
@@ -169,17 +169,14 @@ class DependencyGraph:
 
         # For imports, use the full dep_name as provided
         # For other types, use only the name without module prefix
-        if dep_type == DependencyType.IMPORT:
-            full_dep_name = dep_name
-        else:
-            full_dep_name = dep_name.split('.')[-1]
+        full_dep_name = dep_name if dep_type == DependencyType.IMPORT else dep_name.split('.')[-1]
 
         dependency = Dependency(
             module_name, full_dep_name, dep_type, start_index, end_index
         )
 
         # Check if the dependency already exists
-        existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.dep_name == full_dep_name), None)
+        existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.dep_name == dependency.dep_name), None)
 
         if existing_dep:
             # Update the existing dependency if necessary
@@ -190,7 +187,7 @@ class DependencyGraph:
             self.modules[module_name].dependencies.append(dependency)
 
         # Update lookup tables
-        self.dep_lookup[full_dep_name] = dependency
+        self.dep_lookup[dependency.dep_name] = dependency
 
         # Update imported_by for imports, ensuring a module doesn't appear in its own imported_by set
         if dep_type == DependencyType.IMPORT and module_name != dep_name:
@@ -213,10 +210,7 @@ class DependencyGraph:
         dependencies = set()
 
         def add_dependency(name: str):
-            if name not in sys.stdlib_module_names:
-                dependencies.add(name)
-            else:
-                dependencies.add(name.split('.')[-1])
+            dependencies.add(name)
 
         for node in ast.iter_child_nodes(tree):
             if isinstance(node, ast.Import):
