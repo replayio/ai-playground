@@ -51,6 +51,7 @@ class DependencyImport:
     def __init__(self, module: str, name: str):
         self.module: str = module
         self.name: str = name
+        self.module_name: str = module  # Set the module_name attribute
 
     def __repr__(self):
         return f"DependencyImport(module='{self.module}', name='{self.name}')"
@@ -140,6 +141,7 @@ class DependencyGraph:
                     0,
                     0
                 )
+                dep.module_name = dep.module  # Ensure module_name is set correctly
             else:
                 self.add_dependency(
                     module_name,
