@@ -28,10 +28,7 @@ class Dependency:
     ):
         self.module_name: str = module_name
         self.name: str = name
-        if dep_type == DependencyType.IMPORT:
-            self.dep_name: str = name
-        else:
-            self.dep_name: str = f"{module_name}.{name}"
+        self.dep_name: str = name
         self.dep_type: DependencyType = dep_type
         self.start_index: int = start_index
         self.end_index: int = end_index
@@ -123,22 +120,18 @@ class DependencyGraph:
         dependencies = self.find_dependencies(tree, line_to_index)
 
         for dep_name in dependencies:
-            full_dep_name = dep_name  # Initialize full_dep_name at the beginning of the loop
             if dep_name in sys.stdlib_module_names or dep_name == 'sys.path':
                 dep_type = DependencyType.IMPORT
             elif '.' in dep_name:
                 dep_type = DependencyType.IMPORT
-                # For imports, keep the full name without adding the current module name
             elif dep_name.isupper():
                 dep_type = DependencyType.VARIABLE
-                full_dep_name = f"{module_name}.{dep_name}"
             else:
                 dep_type = DependencyType.FUNCTION
-                # Keep function names as they are, without prefixing with module_name
 
             self.add_dependency(
                 module_name,
-                full_dep_name,
+                dep_name,
                 dep_type,
                 0,  # Use 0 as default start_index
                 0   # Use 0 as default end_index
@@ -166,9 +159,8 @@ class DependencyGraph:
         """
         self.add_module(module_name)
 
-        # For imports, use the full dep_name as provided
-        # For other types, use only the name without module prefix
-        full_dep_name = dep_name if dep_type == DependencyType.IMPORT else dep_name
+        # Use dep_name directly for all dependency types
+        full_dep_name = dep_name
 
         dependency = Dependency(
             module_name, dep_name, dep_type, start_index, end_index
