@@ -123,12 +123,12 @@ class DependencyGraph:
         dependencies = self.find_dependencies(tree, line_to_index)
 
         for dep_name in dependencies:
+            full_dep_name = dep_name  # Initialize full_dep_name at the beginning of the loop
             if dep_name in sys.stdlib_module_names or dep_name == 'sys.path':
                 dep_type = DependencyType.IMPORT
             elif '.' in dep_name:
                 dep_type = DependencyType.IMPORT
                 # For imports, keep the full name without adding the current module name
-                full_dep_name = dep_name
             elif dep_name.isupper():
                 dep_type = DependencyType.VARIABLE
                 full_dep_name = f"{module_name}.{dep_name}"
