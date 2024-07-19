@@ -134,14 +134,18 @@ class DependencyGraph:
 
         for dep in dependencies:
             if isinstance(dep, DependencyImport):
+                dep.module_name = module_name  # Ensure the module_name attribute is set correctly
+                print(f"Adding import dependency: module_name={module_name}, name={dep.name}")
                 self.add_dependency(
-                    dep.module_name,
+                    module_name,
                     dep.name,
                     None,
                     0,
                     0
                 )
+                self.imported_by[dep.name].add(module_name)
             else:
+                print(f"Adding direct dependency: module_name={module_name}, name={dep.name}, dep_type={dep.dep_type}")
                 self.add_dependency(
                     module_name,
                     dep.name,
@@ -176,11 +180,13 @@ class DependencyGraph:
             dependency = Dependency(
                 module_name, name, dep_type, start_index, end_index
             )
+            # Check if the dependency already exists
+            existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.name == dependency.name and isinstance(dep, Dependency)), None)
         else:
             dependency = DependencyImport(module_name, name)
-
-        # Check if the dependency already exists
-        existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.name == dependency.name), None)
+            dependency.module_name = module_name  # Ensure the module_name attribute is set correctly
+            # Check if the dependency already exists
+            existing_dep = next((dep for dep in self.modules[module_name].dependency_imports if dep.name == dependency.name and isinstance(dep, DependencyImport)), None)
 
         if existing_dep:
             # Update the existing dependency if necessary
@@ -188,7 +194,10 @@ class DependencyGraph:
                 existing_dep.start_index = start_index
                 existing_dep.end_index = end_index
         else:
-            self.modules[module_name].dependencies.append(dependency)
+            if isinstance(dependency, Dependency):
+                self.modules[module_name].dependencies.append(dependency)
+            else:
+                self.modules[module_name].dependency_imports.append(dependency)
 
         # Update lookup tables
         self.dep_lookup[f"{module_name}.{name}"] = dependency
@@ -197,6 +206,7 @@ class DependencyGraph:
 
         # Ensure uniqueness while preserving order
         self.modules[module_name].dependencies = list({dep.name: dep for dep in self.modules[module_name].dependencies}.values())
+        self.modules[module_name].dependency_imports = list({dep.name: dep for dep in self.modules[module_name].dependency_imports}.values())
 
     def find_dependencies(
         self,
@@ -214,23 +224,28 @@ class DependencyGraph:
                 start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
                 end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
                 dependencies.append(Dependency("", node.name, DependencyType.FUNCTION, start_index, end_index))
+                print(f"Found function dependency: name={node.name}")
             elif isinstance(node, ast.ClassDef):
                 start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
                 end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
                 dependencies.append(Dependency("", node.name, DependencyType.CLASS, start_index, end_index))
+                print(f"Found class dependency: name={node.name}")
             elif isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
                         start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
                         end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
                         dependencies.append(Dependency("", target.id, DependencyType.VARIABLE, start_index, end_index))
+                        print(f"Found variable dependency: name={target.id}")
             elif isinstance(node, ast.Import):
                 for alias in node.names:
                     dependencies.append(DependencyImport(alias.name, alias.asname or alias.name))
+                    print(f"Found import dependency: module_name={alias.name}, name={alias.asname or alias.name}")
             elif isinstance(node, ast.ImportFrom):
                 module_name = node.module or ""
                 for alias in node.names:
                     dependencies.append(DependencyImport(module_name, alias.name))
+                    print(f"Found import-from dependency: module_name={module_name}, name={alias.name}")
 
         return dependencies
 
