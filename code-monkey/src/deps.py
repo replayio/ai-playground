@@ -1,7 +1,8 @@
 import os
 import ast
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Set
 from enum import Enum
+from collections import defaultdict
 from constants import artifacts_dir
 
 
@@ -52,6 +53,7 @@ class DependencyGraph:
         self.modules: Dict[str, Module] = {}
         self.dep_lookup: Dict[str, Dependency] = {}
         self.file_cache: Dict[str, Tuple[str, ast.AST, Dict[int, int]]] = {}
+        self.imported_by: Dict[str, Set[str]] = defaultdict(set)
         if module_paths:
             for path in module_paths:
                 module_name = os.path.splitext(os.path.basename(path))[0]
@@ -79,7 +81,12 @@ class DependencyGraph:
         self.file_cache[file_path] = (content, tree, line_to_index)
         return content, tree, line_to_index
 
-    def get_file_index(self, line: int, col: int, line_to_index: Dict[int, int]) -> int:
+    def get_file_index(
+        self,
+        line: int,
+        col: int,
+        line_to_index: Dict[int, int]
+    ) -> int:
         """
         Convert line and column numbers to file index.
         """
@@ -90,17 +97,16 @@ class DependencyGraph:
         Analyze a single file and add its dependencies to the graph.
         """
         content, tree, line_to_index = self.read_and_parse_file(file_path)
-        imports = self.get_imports(tree, line_to_index)
-        constructs = self.get_top_level_constructs(tree, line_to_index)
+        dependencies = self.find_dependencies(tree, line_to_index)
 
-        for imp, (start, end) in imports:
-            self.add_dependency(module_name, imp, DependencyType.IMPORT, start, end)
-
-        for construct, (start, end) in constructs:
-            if construct not in [imp for imp, _ in imports]:
-                self.add_dependency(
-                    module_name, construct, DependencyType.FUNCTION, start, end
-                )  # Assume function for simplicity
+        for dep in dependencies:
+            self.add_dependency(
+                module_name,
+                dep.name,
+                dep.dep_type,
+                dep.start_index,
+                dep.end_index
+            )
 
         self.modules[module_name].explored = True
 
@@ -123,18 +129,25 @@ class DependencyGraph:
         Add a dependency to a module in the graph.
         """
         self.add_module(module_name)
-        dependency = Dependency(module_name, dep_name, dep_type, start_index, end_index)
+        dependency = Dependency(
+            module_name, dep_name, dep_type, start_index, end_index
+        )
         self.modules[module_name].dependencies.append(dependency)
         self.dep_lookup[dependency.dep_name] = dependency
+        self.imported_by[dep_name].add(module_name)
         self.modules[module_name].explored = True
 
-    def get_imports(
-        self, tree: ast.AST, line_to_index: Dict[int, int]
-    ) -> List[Tuple[str, Tuple[int, int]]]:
+    def find_dependencies(
+        self,
+        tree: ast.AST,
+        line_to_index: Dict[int, int]
+    ) -> List[Dependency]:
         """
-        Extract imports from a Python AST.
+        Extract imports and top-level constructs from a Python AST.
         """
-        imports = []
+        dependencies = []
+
+        # Extract imports
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
@@ -144,7 +157,11 @@ class DependencyGraph:
                     end = self.get_file_index(
                         node.end_lineno, node.end_col_offset, line_to_index
                     )
-                    imports.append((alias.name, (start, end)))
+                    dependencies.append(
+                        Dependency(
+                            "", alias.name, DependencyType.IMPORT, start, end
+                        )
+                    )
             elif isinstance(node, ast.ImportFrom):
                 module = node.module if node.module else ""
                 for alias in node.names:
@@ -154,24 +171,34 @@ class DependencyGraph:
                     end = self.get_file_index(
                         node.end_lineno, node.end_col_offset, line_to_index
                     )
-                    imports.append((f"{module}.{alias.name}", (start, end)))
+                    dependencies.append(
+                        Dependency(
+                            "",
+                            f"{module}.{alias.name}",
+                            DependencyType.IMPORT,
+                            start,
+                            end
+                        )
+                    )
 
-        return imports
-
-    def get_top_level_constructs(
-        self, tree: ast.AST, line_to_index: Dict[int, int]
-    ) -> List[Tuple[str, Tuple[int, int]]]:
-        """
-        Extract top-level constructs from a Python AST.
-        """
-        constructs = []
+        # Extract top-level constructs
         for node in ast.iter_child_nodes(tree):
-            if isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef)):
-                start = self.get_file_index(node.lineno, node.col_offset, line_to_index)
+            if isinstance(node, (ast.FunctionDef, ast.ClassDef,
+                                 ast.AsyncFunctionDef)):
+                start = self.get_file_index(
+                    node.lineno, node.col_offset, line_to_index
+                )
                 end = self.get_file_index(
                     node.end_lineno, node.end_col_offset, line_to_index
                 )
-                constructs.append((node.name, (start, end)))
+                dep_type = (
+                    DependencyType.CLASS
+                    if isinstance(node, ast.ClassDef)
+                    else DependencyType.FUNCTION
+                )
+                dependencies.append(
+                    Dependency("", node.name, dep_type, start, end)
+                )
             elif isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
@@ -181,14 +208,18 @@ class DependencyGraph:
                         end = self.get_file_index(
                             node.end_lineno, node.end_col_offset, line_to_index
                         )
-                        constructs.append((target.id, (start, end)))
+                        dependencies.append(
+                            Dependency(
+                                "", target.id, DependencyType.VARIABLE,
+                                start, end
+                            )
+                        )
 
-        return constructs
+        return dependencies
 
-    def analyze_repository(self, repo_path: str, partial: bool = False) -> None:
+    def analyze_repository(self, repo_path: str) -> None:
         """
         Analyze the repository and build the dependency graph.
-        If partial is True, only analyze unexplored modules.
         """
         for root, _, files in os.walk(repo_path):
             for file in files:
@@ -197,9 +228,7 @@ class DependencyGraph:
                     module_name = os.path.splitext(file)[0]
 
                     self.add_module(module_name)
-
-                    if not partial or not self.modules[module_name].explored:
-                        self.analyze_file(file_path, module_name)
+                    self.analyze_file(file_path, module_name)
 
     def get_dep(self, dep_name: str) -> Optional[Dependency]:
         """
@@ -211,20 +240,35 @@ class DependencyGraph:
         """
         Print the dependencies of all modules in the graph.
         """
-        print(
-            "\
-Module dependencies:"
-        )
+        print("Module dependencies:")
         for module_name, module in self.modules.items():
             print(f"{module_name} (Explored: {module.explored}):")
             if module.dependencies:
                 for dep in module.dependencies:
                     print(
-                        f"  -> {dep.name} ({dep.dep_type.name}) [Indexes {dep.start_index}-{dep.end_index}]"
+                        f"  -> {dep.name} ({dep.dep_type.name}) "
+                        f"[Indexes {dep.start_index}-{dep.end_index}]"
                     )
             else:
                 print("  Not analyzed")
             print()
+
+    def get_module_imported_by(self, module_name: str) -> Set[str]:
+        """
+        Get the set of modules that import the given module.
+        """
+        return {
+            importer
+            for dep, importers in self.imported_by.items()
+            if dep.startswith(f"{module_name}.")
+            for importer in importers
+        }
+
+    def get_dep_imported_by(self, dep_name: str) -> Set[str]:
+        """
+        Get the set of modules that import the given dependency.
+        """
+        return self.imported_by.get(dep_name, set())
 
 
 if __name__ == "__main__":
