@@ -132,13 +132,22 @@ class DependencyGraph:
         dependencies = self.find_dependencies(tree, line_to_index)
 
         for dep in dependencies:
-            self.add_dependency(
-                module_name,
-                dep.full_name,
-                dep.dep_type,
-                dep.start_index,
-                dep.end_index
-            )
+            if isinstance(dep, DependencyImport):
+                self.add_dependency(
+                    module_name,
+                    f"{dep.module}.{dep.name}",
+                    DependencyType.IMPORT,
+                    self.get_file_index(dep.start_index, 0, line_to_index),
+                    self.get_file_index(dep.end_index, 0, line_to_index)
+                )
+            else:
+                self.add_dependency(
+                    module_name,
+                    dep.full_name,
+                    dep.dep_type,
+                    dep.start_index,
+                    dep.end_index
+                )
 
         self.modules[module_name].explored = True
 
