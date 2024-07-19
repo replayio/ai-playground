@@ -28,7 +28,7 @@ class Dependency:
     ):
         self.module_name: str = module_name
         self.name: str = name
-        self.dep_name: str = name if name.startswith(module_name) else f"{module_name}.{name}"
+        self.dep_name: str = name
         self.dep_type: DependencyType = dep_type
         self.start_index: int = start_index
         self.end_index: int = end_index
@@ -122,20 +122,31 @@ class DependencyGraph:
         for dep_name in dependencies:
             if dep_name in sys.stdlib_module_names or dep_name == 'sys.path':
                 dep_type = DependencyType.IMPORT
-            elif '.' in dep_name:
-                dep_type = DependencyType.IMPORT
-            elif dep_name.isupper():
-                dep_type = DependencyType.VARIABLE
+                # For standard library imports, use the dep_name directly
+                self.add_dependency(
+                    module_name,
+                    dep_name,
+                    dep_type,
+                    0,  # Use 0 as default start_index
+                    0   # Use 0 as default end_index
+                )
             else:
-                dep_type = DependencyType.FUNCTION
+                if '.' in dep_name:
+                    dep_type = DependencyType.IMPORT
+                elif dep_name.isupper():
+                    dep_type = DependencyType.VARIABLE
+                else:
+                    dep_type = DependencyType.FUNCTION
 
-            self.add_dependency(
-                module_name,
-                dep_name,
-                dep_type,
-                0,  # Use 0 as default start_index
-                0   # Use 0 as default end_index
-            )
+                # For non-standard library imports, prefix with module_name
+                full_dep_name = f"{module_name}.{dep_name}"
+                self.add_dependency(
+                    module_name,
+                    full_dep_name,
+                    dep_type,
+                    0,  # Use 0 as default start_index
+                    0   # Use 0 as default end_index
+                )
 
         self.modules[module_name].explored = True
 
