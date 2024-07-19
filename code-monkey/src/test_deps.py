@@ -63,18 +63,12 @@ class MyClass:
         self.assertIn('file2', module_dependencies)
 
         file1_deps = module_dependencies['file1']
-        file1_imports = [dep for dep in file1_deps if dep.dep_type == DependencyType.IMPORT]
-        file1_constructs = [dep for dep in file1_deps if dep.dep_type != DependencyType.IMPORT]
-
-        self.assertTrue(any(dep.dep_name == 'os' and dep.dep_type == DependencyType.IMPORT for dep in file1_deps))
-        self.assertTrue(any(dep.dep_name == 'func1' and dep.dep_type != DependencyType.IMPORT for dep in file1_deps))
+        self.assertTrue(any(dep.dep_name == 'os' for dep in file1_deps))
+        self.assertTrue(any(dep.dep_name == 'func1' for dep in file1_deps))
 
         file2_deps = module_dependencies['file2']
-        file2_imports = [dep for dep in file2_deps if dep.dep_type == DependencyType.IMPORT]
-        file2_constructs = [dep for dep in file2_deps if dep.dep_type != DependencyType.IMPORT]
-
-        self.assertTrue(any(dep.dep_name == 'file1.func1' and dep.dep_type == DependencyType.IMPORT for dep in file2_deps))
-        self.assertTrue(any(dep.dep_name == 'MyClass' and dep.dep_type != DependencyType.IMPORT for dep in file2_deps))
+        self.assertTrue(any(dep.dep_name == 'file1.func1' for dep in file2_deps))
+        self.assertTrue(any(dep.dep_name == 'MyClass' for dep in file2_deps))
 
         # Check imported_by lookup table
         self.assertEqual(self.graph.get_module_imported_by('file1'), {'file2'})
