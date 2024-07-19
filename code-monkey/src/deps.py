@@ -136,9 +136,9 @@ class DependencyGraph:
                 self.add_dependency(
                     module_name,
                     f"{dep.module}.{dep.name}",
-                    DependencyType.IMPORT,
-                    self.get_file_index(dep.start_index, 0, line_to_index),
-                    self.get_file_index(dep.end_index, 0, line_to_index)
+                    None,
+                    0,
+                    0
                 )
             else:
                 self.add_dependency(
@@ -162,7 +162,7 @@ class DependencyGraph:
         self,
         module_name: str,
         full_name: str,
-        dep_type: DependencyType,
+        dep_type: Optional[DependencyType],
         start_index: int,
         end_index: int,
     ) -> None:
@@ -171,23 +171,24 @@ class DependencyGraph:
         """
         self.add_module(module_name)
 
-        dependency = Dependency(
-            module_name, full_name.split('.')[-1], dep_type, start_index, end_index
-        )
+        if dep_type is not None:
+            dependency = Dependency(
+                module_name, full_name.split('.')[-1], dep_type, start_index, end_index
+            )
 
-        # Check if the dependency already exists
-        existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.full_name == dependency.full_name), None)
+            # Check if the dependency already exists
+            existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.full_name == dependency.full_name), None)
 
-        if existing_dep:
-            # Update the existing dependency if necessary
-            existing_dep.dep_type = dep_type
-            existing_dep.start_index = start_index
-            existing_dep.end_index = end_index
-        else:
-            self.modules[module_name].dependencies.append(dependency)
+            if existing_dep:
+                # Update the existing dependency if necessary
+                existing_dep.dep_type = dep_type
+                existing_dep.start_index = start_index
+                existing_dep.end_index = end_index
+            else:
+                self.modules[module_name].dependencies.append(dependency)
 
-        # Update lookup tables
-        self.dep_lookup[full_name] = dependency
+            # Update lookup tables
+            self.dep_lookup[full_name] = dependency
 
         self.modules[module_name].explored = True
 
