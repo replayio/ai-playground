@@ -1,11 +1,12 @@
 import os
-from typing import List
+from typing import List, Type, Any, Tuple
 from anthropic import Anthropic
 from anthropic.types import Message, MessageParam
 from tools.tools import (
     AgentName,
     handle_claude_tool_call,
-    claude_tools
+    claude_tools,
+    tools_by_name
 )
 from tools.utils import (
     ask_user,
@@ -16,6 +17,8 @@ from tools.utils import (
 from constants import ANTHROPIC_API_KEY
 from token_stats import TokenStats
 from pprint import pprint
+from code_context import CodeContext
+from tools.tool import Tool
 
 # See: https://console.anthropic.com/settings/cost
 SELECTED_MODEL = "claude-3-5-sonnet-20240620"
@@ -26,34 +29,45 @@ MAX_TOKENS = 8192
 # EXTRA_HEADERS = None
 # MAX_TOKENS = 4096
 
+class ToolUser:
+    def __init__(self, tool_class: Type[Tool], tool_args: List[Any]):
+        self.tool_class = tool_class
+        self.tool_args = tool_args
 
 class Agent:
     name: AgentName
-    names: List[str]
+    context: CodeContext
+    tools: List[ToolUser] = []
     SYSTEM_PROMPT = "You are too stupid to do anything. Tell the user that they can't use you and must use an agent with a proper SYSTEM_PROMPT instead."
 
-    def __init__(self, names: List[str]) -> None:
-        self.names = names
+    def __init__(self, context: CodeContext = None) -> None:
+        self.context = context if context is not None else CodeContext()
 
     def run_prompt(self, prompt: str) -> str:
         raise NotImplementedError("Subclasses must implement run_prompt method")
 
+    def set_context(self, context: CodeContext):
+        self.context = context
+
     def imbue_prompt(self, query: str) -> str:
         return f"""
-These are all files: {self.names}.
+These are all files: {self.context.known_files}.
 Query: {query}
     """.strip()
+
+    def makeTools(self) -> List[Tool]:
+        return [tool_user.tool_class(*tool_user.tool_args) for tool_user in self.tools]
 
 
 class ClaudeAgent(Agent):
     name = AgentName.Claude
 
-    def __init__(self, names: List[str]) -> None:
+    def __init__(self, context: CodeContext = None) -> None:
         if not ANTHROPIC_API_KEY:
             raise Exception(
                 "ANTHROPIC_API_KEY was not defined. Check your .env.secret file"
             )
-        super().__init__(names)
+        super().__init__(context)
         self.client = Anthropic(api_key=ANTHROPIC_API_KEY)
         self.token_stats = TokenStats()
 
@@ -64,6 +78,7 @@ class ClaudeAgent(Agent):
         assistant_messages = []
         user_messages = [{"role": "user", "content": prompt}]
         messages = user_messages
+        final_message_content = ""
 
         try:
             while True:
@@ -79,7 +94,7 @@ class ClaudeAgent(Agent):
                 # Debug-print stats
                 self.token_stats.print_stats()
 
-                had_any_text = self._process_response(
+                had_any_text, final_message_content = self._process_response(
                     response,
                     modified_files,
                     had_any_text,
@@ -103,6 +118,7 @@ class ClaudeAgent(Agent):
             raise err
 
         self.token_stats.print_stats()
+        return final_message_content
 
     def _prepare_prompt(self, prompt: str) -> str:
         prompt = prompt.strip()
@@ -118,7 +134,7 @@ class ClaudeAgent(Agent):
                 model=SELECTED_MODEL,
                 max_tokens=MAX_TOKENS,
                 messages=messages,
-                tools=claude_tools,
+                tools=self.makeTools(),
                 extra_headers=EXTRA_HEADERS,
             )
         except Exception as err:
@@ -135,7 +151,8 @@ class ClaudeAgent(Agent):
         had_any_text: bool,
         assistant_messages: List[dict],
         user_messages: List[dict],
-    ) -> bool:
+    ) -> Tuple[bool, str]:
+        final_message_content = ""
         for response_message in response.content:
             # print("RAW RESPONSE:")
             # pprint(response_message)
@@ -147,21 +164,24 @@ class ClaudeAgent(Agent):
                 )
             elif response_message.type == "text":
                 had_any_text = True
-                print(f"A: {response_message.text}")
+                final_message_content = response_message.text
+                print(f"A: {final_message_content}")
             elif response_message.type == "error":
                 had_any_text = True
-                print(f"ERROR: {response_message.text}")
-                return had_any_text
+                final_message_content = response_message.text
+                print(f"ERROR: {final_message_content}")
+                return had_any_text, final_message_content
             elif response_message.type == "final":
                 had_any_text = True
-                print(f"DONE: {str(response_message)}")
-                return had_any_text
+                final_message_content = str(response_message)
+                print(f"DONE: {final_message_content}")
+                return had_any_text, final_message_content
             else:
                 raise Exception(
                     f"Unhandled message type: {response_message.type} - {str(response_message)}"
                 )
 
-        return had_any_text
+        return had_any_text, final_message_content
 
     def _handle_tool_use(self, response_message: dict, modified_files: set) -> dict:
         return handle_claude_tool_call(
