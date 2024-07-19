@@ -93,11 +93,12 @@ class DependencyGraph:
         if file_path in self.file_cache:
             return self.file_cache[file_path]
 
+        content = ""
+        line_to_index = {}
         try:
             with open(file_path, "r") as file:
                 content = file.read()
                 tree = ast.parse(content)
-                line_to_index = {}
                 index = 0
                 for i, line in enumerate(content.splitlines(keepends=True), 1):
                     line_to_index[i] = index
@@ -210,6 +211,17 @@ class DependencyGraph:
                         start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
                         end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
                         dependencies.append(Dependency("", target.id, DependencyType.VARIABLE, start_index, end_index))
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
+                    end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
+                    dependencies.append(Dependency(node.module, alias.name, DependencyType.IMPORT, start_index, end_index))
+            elif isinstance(node, ast.ImportFrom):
+                module = node.module if node.module else ""
+                for alias in node.names:
+                    start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
+                    end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
+                    dependencies.append(Dependency(module, alias.name, DependencyType.IMPORT, start_index, end_index))
 
         return dependencies
 
