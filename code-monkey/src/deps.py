@@ -144,7 +144,7 @@ class DependencyGraph:
             else:
                 self.add_dependency(
                     module_name,
-                    dep.full_name,
+                    dep.name,
                     dep.dep_type,
                     dep.start_index,
                     dep.end_index
