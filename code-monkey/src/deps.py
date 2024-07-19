@@ -211,6 +211,13 @@ class DependencyGraph:
                         start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
                         end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
                         dependencies.append(Dependency("", target.id, DependencyType.VARIABLE, start_index, end_index))
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    dependencies.append(DependencyImport(alias.name, alias.asname or alias.name))
+            elif isinstance(node, ast.ImportFrom):
+                module_name = node.module or ""
+                for alias in node.names:
+                    dependencies.append(DependencyImport(module_name, alias.name))
 
         return dependencies
 
