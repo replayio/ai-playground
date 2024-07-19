@@ -15,6 +15,7 @@ from tools.run_test_tool import RunTestTool
 from tools.rg_tool import RgTool
 from tools.exec_tool import ExecTool
 from tools.io_tool import IOTool
+from tools.invoke_agent_tool import InvokeAgentTool
 
 
 class AgentName(Enum):
@@ -42,6 +43,7 @@ all_tool_classes = [
     RunTestTool,
     RgTool,
     ExecTool,
+    InvokeAgentTool,
 ]
 
 tools_by_name: Dict[str, Type[Tool]] = {tool.name: tool for tool in all_tool_classes}
