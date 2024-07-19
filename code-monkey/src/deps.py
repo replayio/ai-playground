@@ -1,5 +1,6 @@
 import os
 import ast
+import sys
 from typing import List, Dict, Optional, Tuple, Set
 from enum import Enum
 from collections import defaultdict
@@ -25,9 +26,9 @@ class Dependency:
         start_index: int,
         end_index: int,
     ):
-        self.dep_name: str = name
-        self.name: str = name
         self.module_name: str = module_name
+        self.name: str = name
+        self.dep_name: str = f"{module_name}.{name}" if module_name else name
         self.dep_type: DependencyType = dep_type
         self.start_index: int = start_index
         self.end_index: int = end_index
@@ -114,23 +115,26 @@ class DependencyGraph:
         """
         content, tree, line_to_index = self.read_and_parse_file(file_path)
         if tree is None:
-            print(f"Warning: Failed to parse {file_path}. Skipping dependency analysis.")
             return
 
         dependencies = self.find_dependencies(tree, line_to_index)
-        print(f"DEBUG: Dependencies after find_dependencies for {module_name}: {dependencies}")
 
         for dep_name in dependencies:
-            print(f"DEBUG: Adding dependency to module {module_name}: {dep_name}")
-            if dep_name in ('os', 'sys.path') or '.' in dep_name:
+            if dep_name in sys.stdlib_module_names or dep_name == 'sys.path':
                 dep_type = DependencyType.IMPORT
+            elif '.' in dep_name:
+                dep_type = DependencyType.IMPORT
+                if dep_name.split('.')[0] not in sys.stdlib_module_names:
+                    dep_name = f"{module_name}.{dep_name}"
             elif dep_name.isupper():
                 dep_type = DependencyType.VARIABLE
             else:
                 dep_type = DependencyType.FUNCTION
+
+            full_dep_name = f"{module_name}.{dep_name}" if module_name and not dep_name.startswith(module_name) else dep_name
             self.add_dependency(
                 module_name,
-                dep_name,
+                full_dep_name,
                 dep_type,
                 0,  # Use 0 as default start_index
                 0   # Use 0 as default end_index
@@ -138,16 +142,6 @@ class DependencyGraph:
 
         # Ensure that the module's dependencies are correctly updated
         self.modules[module_name].dependencies = list({dep.dep_name: dep for dep in self.modules[module_name].dependencies}.values())
-        print(f"DEBUG: All dependencies for {module_name}: {[f'{dep.dep_name} ({dep.dep_type})' for dep in self.modules[module_name].dependencies]}")
-
-        # Explicitly check for expected dependencies
-        expected_deps = ['os', 'sys.path', 'module1.func1', 'module1.func2']
-        for expected_dep in expected_deps:
-            dep = next((dep for dep in self.modules[module_name].dependencies if dep.dep_name == expected_dep), None)
-            if dep:
-                print(f"DEBUG: '{expected_dep}' dependency confirmed in module {module_name}: {dep}")
-            else:
-                print(f"DEBUG: '{expected_dep}' dependency not found in module {module_name}")
 
         self.modules[module_name].explored = True
 
@@ -173,30 +167,25 @@ class DependencyGraph:
         dependency = Dependency(
             module_name, dep_name, dep_type, start_index, end_index
         )
-        print(f"DEBUG: Attempting to add dependency {dep_name} (Type: {dep_type}) to module {module_name}")
 
         # Check if the dependency already exists
-        existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.dep_name == dep_name), None)
+        existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.dep_name == dependency.dep_name), None)
 
         if existing_dep:
-            print(f"DEBUG: Dependency {dep_name} already exists in module {module_name}. Updating...")
             # Update the existing dependency if necessary
             existing_dep.dep_type = dep_type
             existing_dep.start_index = start_index
             existing_dep.end_index = end_index
         else:
-            print(f"DEBUG: Adding new dependency {dep_name} to module {module_name}")
             self.modules[module_name].dependencies.append(dependency)
 
         # Update lookup tables
-        self.dep_lookup[dep_name] = dependency
-        self.imported_by[dep_name].add(module_name)
+        self.dep_lookup[dependency.dep_name] = dependency
+        self.imported_by[dependency.dep_name].add(module_name)
         self.modules[module_name].explored = True
 
         # Ensure uniqueness while preserving order
         self.modules[module_name].dependencies = list(dict.fromkeys(self.modules[module_name].dependencies))
-
-        print(f"DEBUG: Updated dependencies for {module_name}: {[f'{dep.dep_name} ({dep.dep_type})' for dep in self.modules[module_name].dependencies]}")
 
     def find_dependencies(
         self,
@@ -207,12 +196,13 @@ class DependencyGraph:
         Extract imports and top-level constructs from a Python AST.
         Returns a single set of all dependencies.
         """
-        print("DEBUG: Starting find_dependencies")
         dependencies = set()
 
         def add_dependency(name: str):
-            print(f"DEBUG: Adding dependency: {name}")
-            dependencies.add(name)
+            if name not in sys.stdlib_module_names:
+                dependencies.add(name)
+            else:
+                dependencies.add(name.split('.')[-1])
 
         for node in ast.iter_child_nodes(tree):
             if isinstance(node, ast.Import):
@@ -239,7 +229,6 @@ class DependencyGraph:
             add_dependency('sys.path')
             dependencies.remove('sys')
 
-        print(f"DEBUG: Final dependencies: {dependencies}")
         return dependencies
 
     def analyze_repository(self, repo_path: str) -> Dict[str, List[Dependency]]:
@@ -257,8 +246,6 @@ class DependencyGraph:
                     self.add_module(module_name)
                     self.analyze_file(file_path, module_name)
                     module_dependencies[module_name] = self.modules[module_name].dependencies
-                    print(f"DEBUG: Analyzed file: {file_path}")
-                    print(f"DEBUG: Dependencies for {module_name}: {[f'{dep.dep_name} ({dep.dep_type})' for dep in module_dependencies[module_name]]}")
 
         return module_dependencies
 
@@ -287,12 +274,12 @@ class DependencyGraph:
 
     def get_module_imported_by(self, module_name: str) -> Set[str]:
         """
-        Get the set of modules that import the given module.
+        Get the set of modules that import the given module or its dependencies.
         """
         return set(
             importer
             for dep, importers in self.imported_by.items()
-            if dep.startswith(f"{module_name}.")
+            if dep == module_name or dep.startswith(f"{module_name}.")
             for importer in importers
         )
 
