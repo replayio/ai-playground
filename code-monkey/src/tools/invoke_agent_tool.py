@@ -1,7 +1,6 @@
 from typing import Dict, Any, List
 from pydantic import BaseModel, Field
 from .tool import Tool
-from ..agent import Agent
 from ..agents import agents_by_name
 
 class InvokeAgentInput(BaseModel):
@@ -30,4 +29,4 @@ class InvokeAgentTool(Tool):
                 agent = agent_class()  # Create agent without passing arguments
                 return agent.run_prompt(prompt)
 
-        return f"Error: Agent '{agent_name}' not found or not allowed."
+        raise Exception(f"Agent '{agent_name}' not found or not allowed.")

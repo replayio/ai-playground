@@ -26,4 +26,3 @@ class WriteFileTool(IOTool):
         with open(file_path, "w") as file:
             file.write(content)
         self.track_modified_file(file_path)
-        return f"File written successfully: {file_path}"

@@ -8,4 +8,4 @@ class Tool(ABC):
 
     @abstractmethod
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
-        pass
+        raise NotImplementedError("Subclasses must implement handle_tool_call method")
