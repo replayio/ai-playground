@@ -66,20 +66,12 @@ class MyClass:
         file1_imports = [dep for dep in file1_deps if dep.dep_type == DependencyType.IMPORT]
         file1_constructs = [dep for dep in file1_deps if dep.dep_type != DependencyType.IMPORT]
 
-        print("DEBUG: file1_deps:", file1_deps)
-        print("DEBUG: file1_imports:", file1_imports)
-        print("DEBUG: file1_constructs:", file1_constructs)
-
         self.assertTrue(any(dep.dep_name == 'os' and dep.dep_type == DependencyType.IMPORT for dep in file1_deps))
         self.assertTrue(any(dep.dep_name == 'func1' and dep.dep_type != DependencyType.IMPORT for dep in file1_deps))
 
         file2_deps = module_dependencies['file2']
         file2_imports = [dep for dep in file2_deps if dep.dep_type == DependencyType.IMPORT]
         file2_constructs = [dep for dep in file2_deps if dep.dep_type != DependencyType.IMPORT]
-
-        print("DEBUG: file2_deps:", file2_deps)
-        print("DEBUG: file2_imports:", file2_imports)
-        print("DEBUG: file2_constructs:", file2_constructs)
 
         self.assertTrue(any(dep.dep_name == 'file1.func1' and dep.dep_type == DependencyType.IMPORT for dep in file2_deps))
         self.assertTrue(any(dep.dep_name == 'MyClass' and dep.dep_type != DependencyType.IMPORT for dep in file2_deps))
