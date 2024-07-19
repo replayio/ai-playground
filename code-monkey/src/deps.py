@@ -6,10 +6,9 @@ from collections import defaultdict
 from constants import artifacts_dir
 
 class DependencyType(Enum):
-    IMPORT = 1
-    FUNCTION = 2
-    CLASS = 3
-    VARIABLE = 4
+    FUNCTION = 1
+    CLASS = 2
+    VARIABLE = 3
 
 
 class Dependency:
@@ -129,7 +128,7 @@ class DependencyGraph:
         if tree is None:
             return
 
-        dependencies, dependency_imports = self.find_dependencies(tree, line_to_index)
+        dependencies = self.find_dependencies(tree, line_to_index)
 
         for dep in dependencies:
             self.add_dependency(
@@ -138,15 +137,6 @@ class DependencyGraph:
                 dep.dep_type,
                 dep.start_index,
                 dep.end_index
-            )
-
-        for dep_import in dependency_imports:
-            self.add_dependency(
-                module_name,
-                dep_import.module,
-                DependencyType.IMPORT,
-                0,  # Use 0 as default start_index
-                0   # Use 0 as default end_index
             )
 
         self.modules[module_name].explored = True
@@ -189,10 +179,6 @@ class DependencyGraph:
         # Update lookup tables
         self.dep_lookup[full_name] = dependency
 
-        # Update imported_by for imports, ensuring a module doesn't appear in its own imported_by set
-        if dep_type == DependencyType.IMPORT and module_name != full_name:
-            self.imported_by[full_name].add(module_name)
-
         self.modules[module_name].explored = True
 
         # Ensure uniqueness while preserving order
@@ -202,29 +188,15 @@ class DependencyGraph:
         self,
         tree: ast.AST,
         line_to_index: Dict[int, int]
-    ) -> Tuple[List[Dependency], List[DependencyImport]]:
+    ) -> List[Dependency]:
         """
-        Extract imports and top-level constructs from a Python AST.
-        Returns a list of dependencies and a list of dependency imports.
+        Extract top-level constructs from a Python AST.
+        Returns a list of dependencies.
         """
         dependencies = []
-        dependency_imports = []
 
         for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
-                    end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
-                    dependencies.append(Dependency(alias.name, alias.asname or alias.name, DependencyType.IMPORT, start_index, end_index))
-                    dependency_imports.append(DependencyImport(alias.name, alias.asname or alias.name))
-            elif isinstance(node, ast.ImportFrom):
-                module = node.module or ""
-                for alias in node.names:
-                    start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
-                    end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
-                    dependencies.append(Dependency(module, alias.name, DependencyType.IMPORT, start_index, end_index))
-                    dependency_imports.append(DependencyImport(module, alias.name))
-            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
                 end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
                 dependencies.append(Dependency("", node.name, DependencyType.FUNCTION, start_index, end_index))
@@ -239,7 +211,7 @@ class DependencyGraph:
                         end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
                         dependencies.append(Dependency("", target.id, DependencyType.VARIABLE, start_index, end_index))
 
-        return dependencies, dependency_imports
+        return dependencies
 
     def analyze_repository(self, repo_path: str) -> Dict[str, List[Dependency]]:
         """
@@ -300,14 +272,8 @@ class DependencyGraph:
         importers = set()
         for importing_module, module in self.modules.items():
             for dep in module.dependencies:
-                if dep.dep_type == DependencyType.IMPORT:
-                    if (dep.name == name and dep.module_name == module_name) or \
-                       (dep.name == dep_name) or \
-                       (dep.name == name and not dep.module_name):
-                        importers.add(importing_module)
-                elif dep.dep_type in (DependencyType.FUNCTION, DependencyType.CLASS, DependencyType.VARIABLE):
-                    if dep.name == name and not module_name:
-                        importers.add(importing_module)
+                if dep.name == name and not module_name:
+                    importers.add(importing_module)
         return importers
 
 
