@@ -63,7 +63,7 @@ class MyClass:
         self.assertIn('file2', module_dependencies)
 
         file1_deps = module_dependencies['file1']
-        self.assertTrue(any(dep.full_name == 'os' for dep in file1_deps))
+        self.assertTrue(any(dep.module_name == 'os' for dep in file1_deps))
         self.assertTrue(any(dep.full_name == 'func1' for dep in file1_deps))
 
         file2_deps = module_dependencies['file2']
