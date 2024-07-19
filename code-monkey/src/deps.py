@@ -28,7 +28,7 @@ class Dependency:
     ):
         self.module_name: str = module_name
         self.name: str = name
-        self.dep_name: str = f"{module_name}.{name}" if module_name else name
+        self.dep_name: str = name if name.startswith(module_name) else f"{module_name}.{name}"
         self.dep_type: DependencyType = dep_type
         self.start_index: int = start_index
         self.end_index: int = end_index
@@ -124,24 +124,18 @@ class DependencyGraph:
                 dep_type = DependencyType.IMPORT
             elif '.' in dep_name:
                 dep_type = DependencyType.IMPORT
-                if dep_name.split('.')[0] not in sys.stdlib_module_names:
-                    dep_name = f"{module_name}.{dep_name}"
             elif dep_name.isupper():
                 dep_type = DependencyType.VARIABLE
             else:
                 dep_type = DependencyType.FUNCTION
 
-            full_dep_name = f"{module_name}.{dep_name}" if module_name and not dep_name.startswith(module_name) else dep_name
             self.add_dependency(
                 module_name,
-                full_dep_name,
+                dep_name,
                 dep_type,
                 0,  # Use 0 as default start_index
                 0   # Use 0 as default end_index
             )
-
-        # Ensure that the module's dependencies are correctly updated
-        self.modules[module_name].dependencies = list({dep.dep_name: dep for dep in self.modules[module_name].dependencies}.values())
 
         self.modules[module_name].explored = True
 
@@ -181,11 +175,11 @@ class DependencyGraph:
 
         # Update lookup tables
         self.dep_lookup[dependency.dep_name] = dependency
-        self.imported_by[dependency.dep_name].add(module_name)
+        self.imported_by[dependency.name].add(module_name)  # Use dependency.name instead of dep_name
         self.modules[module_name].explored = True
 
         # Ensure uniqueness while preserving order
-        self.modules[module_name].dependencies = list(dict.fromkeys(self.modules[module_name].dependencies))
+        self.modules[module_name].dependencies = list({dep.dep_name: dep for dep in self.modules[module_name].dependencies}.values())
 
     def find_dependencies(
         self,
