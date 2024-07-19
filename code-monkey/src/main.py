@@ -1,5 +1,5 @@
-from tools.utils import copy_src
-from agents import Coder
+from agent import ClaudeAgent
+from agents import make_coder
 from pprint import pprint
 from code_context import CodeContext
 # from constants import load_environment
@@ -10,6 +10,7 @@ def main() -> None:
     code_context = CodeContext()
     code_context.copy_src()
 
+    Coder = make_coder(ClaudeAgent)
     coder = Coder(code_context)
 
     print("Go...\n")
