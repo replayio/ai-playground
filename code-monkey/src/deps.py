@@ -162,7 +162,7 @@ class DependencyGraph:
     def add_dependency(
         self,
         module_name: str,
-        full_name: str,
+        name: str,
         dep_type: Optional[DependencyType],
         start_index: int,
         end_index: int,
@@ -174,13 +174,13 @@ class DependencyGraph:
 
         if dep_type is not None:
             dependency = Dependency(
-                module_name, full_name.split('.')[-1], dep_type, start_index, end_index
+                module_name, name, dep_type, start_index, end_index
             )
         else:
-            dependency = DependencyImport(module_name, full_name.split('.')[-1])
+            dependency = DependencyImport(module_name, name)
 
         # Check if the dependency already exists
-        existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.full_name == dependency.full_name), None)
+        existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.name == dependency.name), None)
 
         if existing_dep:
             # Update the existing dependency if necessary
@@ -191,12 +191,12 @@ class DependencyGraph:
             self.modules[module_name].dependencies.append(dependency)
 
         # Update lookup tables
-        self.dep_lookup[full_name] = dependency
+        self.dep_lookup[f"{module_name}.{name}"] = dependency
 
         self.modules[module_name].explored = True
 
         # Ensure uniqueness while preserving order
-        self.modules[module_name].dependencies = list({dep.full_name: dep for dep in self.modules[module_name].dependencies}.values())
+        self.modules[module_name].dependencies = list({dep.name: dep for dep in self.modules[module_name].dependencies}.values())
 
     def find_dependencies(
         self,
