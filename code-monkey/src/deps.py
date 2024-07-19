@@ -29,9 +29,9 @@ class Dependency:
         self.module_name: str = module_name
         self.name: str = name
         if dep_type == DependencyType.IMPORT:
-            self.dep_name: str = f"{module_name}.{name}" if module_name and name not in sys.stdlib_module_names else name
+            self.dep_name: str = name if name in sys.stdlib_module_names else f"{module_name}.{name}"
         else:
-            self.dep_name: str = name
+            self.dep_name: str = f"{module_name}.{name}"
         self.dep_type: DependencyType = dep_type
         self.start_index: int = start_index
         self.end_index: int = end_index
@@ -125,16 +125,17 @@ class DependencyGraph:
         for dep_name in dependencies:
             if dep_name in sys.stdlib_module_names or dep_name == 'sys.path':
                 dep_type = DependencyType.IMPORT
+                name_to_add = dep_name
             elif '.' in dep_name:
                 dep_type = DependencyType.IMPORT
+                # For imports from other files, keep the full name
+                name_to_add = dep_name
             elif dep_name.isupper():
                 dep_type = DependencyType.VARIABLE
+                name_to_add = dep_name
             else:
                 dep_type = DependencyType.FUNCTION
-
-            # For imports, use the full dep_name
-            # For functions and variables, use only the name without module prefix
-            name_to_add = dep_name if dep_type == DependencyType.IMPORT else dep_name.split('.')[-1]
+                name_to_add = dep_name
 
             self.add_dependency(
                 module_name,
@@ -166,14 +167,15 @@ class DependencyGraph:
         """
         self.add_module(module_name)
 
-        # For imports, prefix with module_name if it's not a standard library import
-        if dep_type == DependencyType.IMPORT and dep_name not in sys.stdlib_module_names:
-            full_dep_name = f"{module_name}.{dep_name}"
-        else:
+        # For imports, use the full dep_name as provided
+        # For other types, use only the name without module prefix
+        if dep_type == DependencyType.IMPORT:
             full_dep_name = dep_name
+        else:
+            full_dep_name = dep_name.split('.')[-1]
 
         dependency = Dependency(
-            module_name, dep_name, dep_type, start_index, end_index
+            module_name, full_dep_name, dep_type, start_index, end_index
         )
 
         # Check if the dependency already exists
@@ -190,8 +192,8 @@ class DependencyGraph:
         # Update lookup tables
         self.dep_lookup[full_dep_name] = dependency
 
-        # Update imported_by, ensuring a module doesn't appear in its own imported_by set
-        if module_name != dep_name:
+        # Update imported_by for imports, ensuring a module doesn't appear in its own imported_by set
+        if dep_type == DependencyType.IMPORT and module_name != dep_name:
             self.imported_by[dep_name].add(module_name)
 
         self.modules[module_name].explored = True
