@@ -28,7 +28,7 @@ class Dependency:
     ):
         self.module_name: str = module_name
         self.name: str = name
-        self.dep_name: str = name
+        self.dep_name: str = f"{module_name}.{name}" if module_name and name not in sys.stdlib_module_names else name
         self.dep_type: DependencyType = dep_type
         self.start_index: int = start_index
         self.end_index: int = end_index
@@ -138,11 +138,10 @@ class DependencyGraph:
                 else:
                     dep_type = DependencyType.FUNCTION
 
-                # For non-standard library imports, prefix with module_name
-                full_dep_name = f"{module_name}.{dep_name}"
+                # For non-standard library imports, don't prefix with module_name
                 self.add_dependency(
                     module_name,
-                    full_dep_name,
+                    dep_name,
                     dep_type,
                     0,  # Use 0 as default start_index
                     0   # Use 0 as default end_index
@@ -186,7 +185,11 @@ class DependencyGraph:
 
         # Update lookup tables
         self.dep_lookup[dependency.dep_name] = dependency
-        self.imported_by[dependency.name].add(module_name)  # Use dependency.name instead of dep_name
+
+        # Update imported_by, ensuring a module doesn't appear in its own imported_by set
+        if module_name != dependency.name:
+            self.imported_by[dependency.name].add(module_name)
+
         self.modules[module_name].explored = True
 
         # Ensure uniqueness while preserving order
@@ -281,18 +284,26 @@ class DependencyGraph:
         """
         Get the set of modules that import the given module or its dependencies.
         """
-        return set(
-            importer
-            for dep, importers in self.imported_by.items()
-            if dep == module_name or dep.startswith(f"{module_name}.")
-            for importer in importers
-        )
+        imported_by = set()
+        for dep, importers in self.imported_by.items():
+            if dep == module_name or (not dep.startswith('__') and dep.startswith(f"{module_name}.")):
+                imported_by.update(importers)
+        return imported_by
 
     def get_dep_imported_by(self, dep_name: str) -> Set[str]:
         """
         Get the set of modules that import the given dependency.
         """
-        return self.imported_by.get(dep_name, set())
+        # Handle both standard library and non-standard imports
+        if '.' in dep_name:
+            return self.imported_by.get(dep_name, set())
+        else:
+            return set(
+                importer
+                for full_dep, importers in self.imported_by.items()
+                if full_dep.endswith(f".{dep_name}") or full_dep == dep_name
+                for importer in importers
+            )
 
 
 if __name__ == "__main__":
