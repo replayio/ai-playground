@@ -63,12 +63,12 @@ class MyClass:
         self.assertIn('file2', module_dependencies)
 
         file1_deps = module_dependencies['file1']
-        self.assertTrue(any(dep.dep_name == 'os' for dep in file1_deps))
-        self.assertTrue(any(dep.dep_name == 'func1' for dep in file1_deps))
+        self.assertTrue(any(dep.full_name == 'os' for dep in file1_deps))
+        self.assertTrue(any(dep.full_name == 'func1' for dep in file1_deps))
 
         file2_deps = module_dependencies['file2']
-        self.assertTrue(any(dep.dep_name == 'file1.func1' for dep in file2_deps))
-        self.assertTrue(any(dep.dep_name == 'MyClass' for dep in file2_deps))
+        self.assertTrue(any(dep.full_name == 'file1.func1' for dep in file2_deps))
+        self.assertTrue(any(dep.full_name == 'MyClass' for dep in file2_deps))
 
         # Check imported_by lookup table
         self.assertEqual(self.graph.get_module_imported_by('file1'), {'file2'})
