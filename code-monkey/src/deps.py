@@ -215,7 +215,7 @@ class DependencyGraph:
                 for alias in node.names:
                     start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
                     end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
-                    dependencies.append(Dependency(node.module, alias.name, DependencyType.IMPORT, start_index, end_index))
+                    dependencies.append(Dependency("", alias.name, DependencyType.IMPORT, start_index, end_index))
             elif isinstance(node, ast.ImportFrom):
                 module = node.module if node.module else ""
                 for alias in node.names:
