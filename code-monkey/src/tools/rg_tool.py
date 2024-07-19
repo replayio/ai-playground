@@ -26,11 +26,7 @@ class RgTool(Tool):
         pattern = input["pattern"]
         logging.debug(f"artifacts_dir: {artifacts_dir}")
 
-        try:
-            return self._search_with_rg(pattern)
-        except FileNotFoundError:
-            logging.error("ripgrep (rg) not found. Please install rg to use this tool.")
-            raise Exception("ripgrep (rg) not found. Please install rg to use this tool.")
+        return self._search_with_rg(pattern)
 
     def _search_with_rg(self, pattern: str) -> str:
         command = ["rg", "-i", "--no-heading", "--with-filename", "-r", pattern, "."]
