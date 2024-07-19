@@ -1,6 +1,5 @@
 import os
 import ast
-import sys
 from typing import List, Dict, Optional, Tuple, Set
 from enum import Enum
 from collections import defaultdict
@@ -28,22 +27,34 @@ class Dependency:
     ):
         self.module_name: str = module_name
         self.name: str = name
-        self.dep_name: str = name
+        self.full_name: str = f"{module_name}.{name}"
         self.dep_type: DependencyType = dep_type
         self.start_index: int = start_index
         self.end_index: int = end_index
 
     def __repr__(self):
-        return f"Dependency(dep_name='{self.dep_name}', dep_type={self.dep_type})"
+        return f"Dependency(full_name='{self.full_name}', dep_type={self.dep_type})"
 
     def __eq__(self, other):
         if not isinstance(other, Dependency):
             return False
-        return (self.dep_name == other.dep_name and
+        return (self.full_name == other.full_name and
                 self.dep_type == other.dep_type)
 
     def __hash__(self):
-        return hash((self.dep_name, self.dep_type))
+        return hash((self.full_name, self.dep_type))
+
+class DependencyImport:
+    """
+    Represents an import reference to an actual Dependency.
+    """
+
+    def __init__(self, module: str, name: str):
+        self.module: str = module
+        self.name: str = name
+
+    def __repr__(self):
+        return f"DependencyImport(module='{self.module}', name='{self.name}')"
 
 
 class Module:
@@ -54,6 +65,7 @@ class Module:
     def __init__(self, name: str):
         self.name: str = name
         self.dependencies: List[Dependency] = []
+        self.dependency_imports: List[DependencyImport] = []
         self.explored: bool = False
 
 
@@ -117,22 +129,22 @@ class DependencyGraph:
         if tree is None:
             return
 
-        dependencies = self.find_dependencies(tree, line_to_index)
+        dependencies, dependency_imports = self.find_dependencies(tree, line_to_index)
 
-        for dep_name in dependencies:
-            if dep_name in sys.stdlib_module_names or dep_name == 'sys.path':
-                dep_type = DependencyType.IMPORT
-            elif '.' in dep_name:
-                dep_type = DependencyType.IMPORT
-            elif dep_name.isupper():
-                dep_type = DependencyType.VARIABLE
-            else:
-                dep_type = DependencyType.FUNCTION
-
+        for dep in dependencies:
             self.add_dependency(
                 module_name,
-                dep_name,
-                dep_type,
+                dep.full_name,
+                dep.dep_type,
+                dep.start_index,
+                dep.end_index
+            )
+
+        for dep_import in dependency_imports:
+            self.add_dependency(
+                module_name,
+                dep_import.module,
+                DependencyType.IMPORT,
                 0,  # Use 0 as default start_index
                 0   # Use 0 as default end_index
             )
@@ -149,7 +161,7 @@ class DependencyGraph:
     def add_dependency(
         self,
         module_name: str,
-        dep_name: str,
+        full_name: str,
         dep_type: DependencyType,
         start_index: int,
         end_index: int,
@@ -159,15 +171,12 @@ class DependencyGraph:
         """
         self.add_module(module_name)
 
-        # Use dep_name directly for all dependency types
-        full_dep_name = dep_name
-
         dependency = Dependency(
-            module_name, dep_name, dep_type, start_index, end_index
+            module_name, full_name.split('.')[-1], dep_type, start_index, end_index
         )
 
         # Check if the dependency already exists
-        existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.dep_name == dependency.dep_name), None)
+        existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.full_name == dependency.full_name), None)
 
         if existing_dep:
             # Update the existing dependency if necessary
@@ -178,58 +187,59 @@ class DependencyGraph:
             self.modules[module_name].dependencies.append(dependency)
 
         # Update lookup tables
-        self.dep_lookup[full_dep_name] = dependency
+        self.dep_lookup[full_name] = dependency
 
         # Update imported_by for imports, ensuring a module doesn't appear in its own imported_by set
-        if dep_type == DependencyType.IMPORT and module_name != dep_name:
-            self.imported_by[dep_name].add(module_name)
+        if dep_type == DependencyType.IMPORT and module_name != full_name:
+            self.imported_by[full_name].add(module_name)
 
         self.modules[module_name].explored = True
 
         # Ensure uniqueness while preserving order
-        self.modules[module_name].dependencies = list({dep.dep_name: dep for dep in self.modules[module_name].dependencies}.values())
+        self.modules[module_name].dependencies = list({dep.full_name: dep for dep in self.modules[module_name].dependencies}.values())
 
     def find_dependencies(
         self,
         tree: ast.AST,
         line_to_index: Dict[int, int]
-    ) -> Set[str]:
+    ) -> Tuple[List[Dependency], List[DependencyImport]]:
         """
         Extract imports and top-level constructs from a Python AST.
-        Returns a single set of all dependencies.
+        Returns a list of dependencies and a list of dependency imports.
         """
-        dependencies = set()
+        dependencies = []
+        dependency_imports = []
 
-        def add_dependency(name: str):
-            dependencies.add(name)
-
-        for node in ast.iter_child_nodes(tree):
+        for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    add_dependency(alias.name)
+                    start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
+                    end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
+                    dependencies.append(Dependency(alias.name, alias.asname or alias.name, DependencyType.IMPORT, start_index, end_index))
+                    dependency_imports.append(DependencyImport(alias.name, alias.asname or alias.name))
             elif isinstance(node, ast.ImportFrom):
-                module = node.module or ''
+                module = node.module or ""
                 for alias in node.names:
-                    # For imports from other files, use only the module name
-                    full_name = f"{module}.{alias.name}" if module else alias.name
-                    add_dependency(full_name)
+                    start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
+                    end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
+                    dependencies.append(Dependency(module, alias.name, DependencyType.IMPORT, start_index, end_index))
+                    dependency_imports.append(DependencyImport(module, alias.name))
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                add_dependency(node.name)
+                start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
+                end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
+                dependencies.append(Dependency("", node.name, DependencyType.FUNCTION, start_index, end_index))
             elif isinstance(node, ast.ClassDef):
-                add_dependency(node.name)
+                start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
+                end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
+                dependencies.append(Dependency("", node.name, DependencyType.CLASS, start_index, end_index))
             elif isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
-                        # Only add constants (uppercase names) as dependencies
-                        if target.id.isupper():
-                            add_dependency(target.id)
+                        start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
+                        end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
+                        dependencies.append(Dependency("", target.id, DependencyType.VARIABLE, start_index, end_index))
 
-        # Special handling for 'sys.path'
-        if 'sys' in dependencies:
-            add_dependency('sys.path')
-            dependencies.remove('sys')
-
-        return dependencies
+        return dependencies, dependency_imports
 
     def analyze_repository(self, repo_path: str) -> Dict[str, List[Dependency]]:
         """
