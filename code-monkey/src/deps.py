@@ -126,26 +126,32 @@ class DependencyGraph:
         """
         Analyze a single file and add its dependencies to the graph.
         """
+        print(f"Analyzing file: {file_path} for module: {module_name}")
         content, tree, line_to_index = self.read_and_parse_file(file_path)
+        print(f"File content read and parsed: {file_path}")
         if tree is None:
+            print(f"Tree is None for file: {file_path}")
             return
 
         dependencies = self.find_dependencies(tree, line_to_index)
+        print(f"Dependencies found for file {file_path}: {dependencies}")
 
         for dep in dependencies:
             if isinstance(dep, DependencyImport):
-                dep.module_name = module_name  # Ensure the module_name attribute is set correctly
-                print(f"Adding import dependency: module_name={module_name}, name={dep.name}")
+                print(f"Processing import dependency: module_name={dep.module}, name={dep.name}")
                 self.add_dependency(
                     module_name,
-                    dep.name,
+                    dep.module,
                     None,
                     0,
                     0
                 )
-                self.imported_by[dep.name].add(module_name)
+                print(f"Added import dependency: module_name={dep.module}, name={dep.name} to module {module_name}")
+                self.imported_by[dep.module].add(module_name)
+                print(f"Updated imported_by: {self.imported_by}")
+                print(f"Current state of modules: {self.modules}")
             else:
-                print(f"Adding direct dependency: module_name={module_name}, name={dep.name}, dep_type={dep.dep_type}")
+                print(f"Processing direct dependency: module_name={module_name}, name={dep.name}, dep_type={dep.dep_type}")
                 self.add_dependency(
                     module_name,
                     dep.name,
@@ -153,8 +159,14 @@ class DependencyGraph:
                     dep.start_index,
                     dep.end_index
                 )
+                print(f"Added direct dependency: module_name={module_name}, name={dep.name}, dep_type={dep.dep_type}")
+                print(f"Updated imported_by: {self.imported_by}")
+                print(f"Current state of modules: {self.modules}")
 
         self.modules[module_name].explored = True
+        print(f"Module {module_name} marked as explored")
+        print(f"Final state of imported_by after analyzing {module_name}: {self.imported_by}")
+        print(f"Final state of modules after analyzing {module_name}: {self.modules}")
 
     def add_module(self, name: str) -> None:
         """
@@ -181,11 +193,11 @@ class DependencyGraph:
                 module_name, name, dep_type, start_index, end_index
             )
             # Check if the dependency already exists
-            existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.name == dependency.name and isinstance(dep, Dependency)), None)
+            existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.full_name == dependency.full_name and isinstance(dep, Dependency)), None)
         else:
-            dependency = DependencyImport(module_name, name)
+            dependency = DependencyImport(name, name)
             # Check if the dependency already exists
-            existing_dep = next((dep for dep in self.modules[module_name].dependency_imports if dep.name == dependency.name and isinstance(dep, DependencyImport)), None)
+            existing_dep = next((dep for dep in self.modules[module_name].dependency_imports if dep.module == dependency.module and dep.name == dependency.name and isinstance(dep, DependencyImport)), None)
 
         if existing_dep:
             # Update the existing dependency if necessary
@@ -199,13 +211,16 @@ class DependencyGraph:
                 self.modules[module_name].dependency_imports.append(dependency)
 
         # Update lookup tables
-        self.dep_lookup[f"{module_name}.{name}"] = dependency
+        if isinstance(dependency, Dependency):
+            self.dep_lookup[dependency.full_name] = dependency
+        else:
+            self.dep_lookup[f"{dependency.module}.{dependency.name}"] = dependency
 
         self.modules[module_name].explored = True
 
         # Ensure uniqueness while preserving order
-        self.modules[module_name].dependencies = list({dep.name: dep for dep in self.modules[module_name].dependencies}.values())
-        self.modules[module_name].dependency_imports = list({dep.name: dep for dep in self.modules[module_name].dependency_imports}.values())
+        self.modules[module_name].dependencies = list({dep.full_name: dep for dep in self.modules[module_name].dependencies}.values())
+        self.modules[module_name].dependency_imports = list({f"{dep.module}.{dep.name}": dep for dep in self.modules[module_name].dependency_imports}.values())
 
     def find_dependencies(
         self,
