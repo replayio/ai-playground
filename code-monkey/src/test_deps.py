@@ -2,7 +2,7 @@ import unittest
 import os
 import tempfile
 import ast
-from deps import DependencyGraph, Dependency, Module, DependencyType
+from deps import DependencyGraph, Dependency, DependencyImport, Module, DependencyType
 
 class TestDependencyGraph(unittest.TestCase):
     def setUp(self):
@@ -63,8 +63,9 @@ class MyClass:
         self.assertIn('file2', module_dependencies)
 
         file1_deps = module_dependencies['file1']
-        self.assertTrue(any(dep.module_name == 'os' for dep in file1_deps))
-        self.assertTrue(any(dep.full_name == 'func1' for dep in file1_deps))
+        self.assertTrue(any(dep.name == 'os' for dep in file1_deps))
+        self.assertTrue(any(dep.full_name == 'func1' for dep in file1_deps if isinstance(dep, Dependency)))
+        self.assertTrue(any(dep.name == 'func1' for dep in file1_deps if isinstance(dep, DependencyImport)))
 
         file2_deps = module_dependencies['file2']
         self.assertTrue(any(dep.full_name == 'file1.func1' for dep in file2_deps))
