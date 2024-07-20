@@ -1,5 +1,4 @@
 import speech_recognition as sr
-import numpy as np
 from audio_recording import AudioRecording
 import os
 from google.oauth2 import service_account
@@ -15,7 +14,7 @@ class AudioTranscriber:
         if credentials_path:
             self.credentials = service_account.Credentials.from_service_account_file(credentials_path)
         else:
-            self.credentials = None
+            raise Exception("Cannot initialize AudioTranscriber. GOOGLE_APPLICATION_CREDENTIALS (env var) are missing.")
         logger.debug(f"Initialized AudioTranscriber with credentials: {self.credentials}")
 
     def get_transcript(self, recording: AudioRecording, language: str = "en-US") -> str:
