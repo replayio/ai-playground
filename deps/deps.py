@@ -3,7 +3,7 @@ import ast
 from typing import List, Dict, Optional, Tuple, Set, Union
 from enum import Enum
 from collections import defaultdict
-from constants import artifacts_dir
+from ..constants import artifacts_dir
 
 class DependencyType(Enum):
     FUNCTION = 1
