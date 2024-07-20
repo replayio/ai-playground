@@ -3,6 +3,8 @@ import os
 import time
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from constants import load_environment
+
 from audio_recording import AudioRecording
 from audio_transcriber import AudioTranscriber
 
@@ -10,13 +12,15 @@ def main():
     print("Welcome to the Audio Playground!")
     print("This script will record your voice and transcribe it.")
 
+    load_environment()
+
     if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
         print("Warning: GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.")
         print("Transcription will not be possible without valid credentials.")
         print("Please set the environment variable with the path to your Google Cloud service account key file.")
 
     try:
-        recording = AudioRecording("user_input.wav")
+        recording = AudioRecording()
 
         input("Press Enter to start recording...")
         print("Recording started. Speak now...")

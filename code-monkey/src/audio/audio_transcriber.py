@@ -14,6 +14,7 @@ class AudioTranscriber:
         if credentials_path:
             self.credentials = service_account.Credentials.from_service_account_file(credentials_path)
         else:
+            logger.warning("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. Transcription may not be possible without valid credentials.")
             self.credentials = None
         logger.debug(f"Initialized AudioTranscriber with credentials: {self.credentials}")
 
@@ -34,12 +35,16 @@ class AudioTranscriber:
             audio = sr.AudioData(audio_data.tobytes(), audio_info['frame_rate'], audio_info['sample_width'])
             logger.debug(f"Created AudioData object: {audio}")
 
+            if self.credentials is None:
+                logger.warning("No Google Cloud credentials available. Unable to perform transcription.")
+                return "Transcription unavailable due to missing credentials"
+
             logger.info("[AudioTranscriber] Transcribing audio...")
             logger.debug(f"Credentials: {self.credentials}")
             logger.debug(f"Attempting to transcribe with language: {language}")
 
-            credentials_json = self.credentials.to_json() if self.credentials else None
-            logger.debug(f"Credentials JSON: {credentials_json}")
+            credentials_json = self.credentials.to_json()
+            logger.debug("Converted credentials to JSON for recognize_google_cloud")
 
             try:
                 response = self.recognizer.recognize_google_cloud(
