@@ -288,3 +288,6 @@ pylint-output.txt
 .metadata
 *.log
 .metadata/*
+
+# Ignore WAV files
+*.wav
