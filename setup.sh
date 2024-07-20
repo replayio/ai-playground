@@ -2,33 +2,6 @@
 
 # This script sets up the environment for the AI Playground project.
 # It installs necessary dependencies and configures Google Cloud credentials.
-#
-# IMPORTANT: Before running this script, make sure you have created a .env.secret file
-# in the project root directory with your Google Cloud credentials. See README.md for instructions.
-
-# Load Google Cloud credentials from .env.secret
-if [ -f .env.secret ]; then
-    echo "Loading Google Cloud credentials from .env.secret"
-    export $(grep -v '^#' .env.secret | xargs)
-else
-    echo "Warning: .env.secret file not found. Please create it and add your Google Cloud credentials."
-    echo "See README.md for instructions on setting up Google Cloud credentials."
-    exit 1
-fi
-
-# Check if GOOGLE_APPLICATION_CREDENTIALS is set
-if [ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-    echo "Error: GOOGLE_APPLICATION_CREDENTIALS is not set in .env.secret"
-    echo "Please add GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/keyfile.json to .env.secret"
-    exit 1
-fi
-
-# Check if the credentials file exists
-if [ ! -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-    echo "Error: Google Cloud credentials file not found at $GOOGLE_APPLICATION_CREDENTIALS"
-    echo "Please ensure the file exists and the path is correct in .env.secret"
-    exit 1
-fi
 
 install_package() {
     local package_name="$1"
@@ -116,13 +89,3 @@ install_graphviz() {
 # Main script execution
 install_ripgrep
 install_graphviz
-
-# Install system dependencies for pyaudio
-sudo apt-get install -y clang
-sudo apt-get install -y portaudio19-dev
-
-# Install Python packages using rye
-rye install pyaudio
-rye install SpeechRecognition
-
-echo "Setup completed successfully. Google Cloud credentials are configured."

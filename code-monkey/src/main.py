@@ -2,11 +2,12 @@ from agent import ClaudeAgent
 from agents import make_coder
 from pprint import pprint
 from code_context import CodeContext
-# from constants import load_environment
+from constants import load_environment
 
 def main() -> None:
     print("Initializing...")
 
+    load_environment()
     code_context = CodeContext()
     code_context.copy_src()
 

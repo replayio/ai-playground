@@ -2,6 +2,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from constants import load_environment
+
 from audio_recording import AudioRecording
 from audio_transcriber import AudioTranscriber
 
@@ -9,19 +11,13 @@ def main():
     print("Welcome to the Audio Playground!")
     print("This script will transcribe the test audio file.")
 
+    load_environment()
+
     if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
-        print("Warning: GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.")
-        print("Transcription will not be possible without valid credentials.")
-        print("Please set the environment variable with the path to your Google Cloud service account key file.")
-
-    test_audio_path = 'test_audio.wav'
-
-    if not os.path.exists(test_audio_path):
-        print(f"Error: {test_audio_path} does not exist.")
-        return
+        raise Exception("Warning: GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.")
 
     try:
-        recording = AudioRecording(test_audio_path)
+        recording = AudioRecording()
         audio_data = recording.load_recording()
 
         print(f"[DEBUG] Audio data loaded. Length: {len(audio_data)} samples")
