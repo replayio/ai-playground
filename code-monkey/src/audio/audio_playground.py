@@ -2,28 +2,47 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from audio_input import AudioInput
+from audio_recording import AudioRecording
+from audio_transcriber import AudioTranscriber
 
 def main():
-    audio_input = AudioInput()
-
     print("Welcome to the Audio Playground!")
-    print("This script will record your voice and transcribe it.")
-    print("You can test the functionality multiple times.")
+    print("This script will transcribe the test audio file.")
 
-    while True:
-        print("\nPress Enter to start recording (or type 'exit' to quit)...")
-        user_choice = input()
+    if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
+        print("Warning: GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.")
+        print("Transcription will not be possible without valid credentials.")
+        print("Please set the environment variable with the path to your Google Cloud service account key file.")
 
-        if user_choice.lower() == 'exit':
-            break
+    test_audio_path = 'test_audio.wav'
 
-        print("Recording... Press Enter to stop.")
-        transcribed_text = audio_input.get_input()
+    if not os.path.exists(test_audio_path):
+        print(f"Error: {test_audio_path} does not exist.")
+        return
 
-        print(f"\nTranscribed text: {transcribed_text}")
+    try:
+        recording = AudioRecording(test_audio_path)
+        audio_data = recording.load_recording()
 
-    print("Thank you for using Audio Playground!")
+        print(f"[DEBUG] Audio data loaded. Length: {len(audio_data)} samples")
+
+        transcriber = AudioTranscriber()
+        transcript = transcriber.get_transcript(recording)
+
+        print("\nTranscription result:")
+        print(transcript)
+    except FileNotFoundError as e:
+        print(f"Error: Unable to open the audio file. {str(e)}")
+    except ValueError as e:
+        if "credentials" in str(e).lower():
+            print("Error: Unable to authenticate with Google Cloud.")
+            print("Please ensure that the GOOGLE_APPLICATION_CREDENTIALS environment variable is set correctly.")
+        else:
+            print(f"An unexpected ValueError occurred: {str(e)}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {str(e)}")
+
+    print("\nThank you for using Audio Playground!")
 
 if __name__ == "__main__":
     main()

@@ -31,6 +31,8 @@ backoff==2.2.1
     # via unstructured
 beautifulsoup4==4.12.3
     # via unstructured
+cachetools==5.4.0
+    # via google-auth
 certifi==2024.7.4
     # via httpcore
     # via httpx
@@ -67,6 +69,8 @@ frozenlist==1.4.1
     # via aiosignal
 fsspec==2024.6.1
     # via huggingface-hub
+google-auth==2.32.0
+    # via ai-playground
 graphviz==0.20.3
     # via ai-playground
 greenlet==3.0.3
@@ -164,6 +168,11 @@ platformdirs==4.2.2
     # via pylint
 psutil==6.0.0
     # via unstructured
+pyasn1==0.6.0
+    # via pyasn1-modules
+    # via rsa
+pyasn1-modules==0.4.0
+    # via google-auth
 pyaudio==0.2.14
     # via ai-playground
 pydantic==2.8.2
@@ -208,6 +217,8 @@ requests==2.32.3
     # via unstructured-client
 requests-toolbelt==1.0.0
     # via unstructured-client
+rsa==4.9
+    # via google-auth
 six==1.16.0
     # via langdetect
     # via python-dateutil
