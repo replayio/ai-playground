@@ -17,10 +17,8 @@ def main() -> None:
 
     # prompt = "Improve tests for deps.py. Run them and fix everything."
 
-    # prompt = "Fix deps.py: 1. If any dependency graph is queried at all, just read and parse all files, and construct the full dependency graph. 2. Merge get_imports and get_top_level_constructs to a new function called "find_dependencies" that just returns List[Dependency]. 3. Add a new imported_by lookup table and a corresponding get_module_imported_by(module_name) and get_dep_imported_by(dep_name) functions. 4. Update tests. 5. Make sure, tests pass."
-
     # TODO:
-    "1. Add a new abstract CodeAnalysisTool class to the tools folder. Make sure it is implemented just like IOTool, and inherits from Tool. 2. Have GetDependenciesTool inherit from it. 3. Fix the GetDependenciesTool to call a new function on the graph that returns an adjacency list format of all imports and imported_by's of the given modules."
+    # "1. Add a new abstract CodeAnalysisTool class to the tools folder. Make sure it is implemented just like IOTool, and inherits from Tool. 2. Have GetDependenciesTool inherit from it. 3. Fix the GetDependenciesTool to call a new function on the graph that returns an adjacency list format of all imports and imported_by's of the given modules."
 
     # TODO:
 
