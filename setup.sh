@@ -87,9 +87,10 @@ install_graphviz() {
 install_ripgrep
 install_graphviz
 
+# Install system dependencies for pyaudio
+sudo apt-get install -y clang
+sudo apt-get install -y portaudio19-dev
 
-# Install system dependencies
-sudo apt-get install -y python3-pyaudio
-
-# Install Python packages
-rye add pyaudio SpeechRecognition
+# Install Python packages using rye
+rye install pyaudio
+rye install SpeechRecognition
