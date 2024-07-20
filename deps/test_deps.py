@@ -2,7 +2,7 @@ import unittest
 import os
 import tempfile
 import ast
-from deps import DependencyGraph, Dependency, DependencyImport, Module, DependencyType
+from .deps import DependencyGraph, Dependency, DependencyImport, Module, DependencyType
 
 class TestDependencyGraph(unittest.TestCase):
     def setUp(self):
