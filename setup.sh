@@ -86,3 +86,10 @@ install_graphviz() {
 # Main script execution
 install_ripgrep
 install_graphviz
+
+
+# Install system dependencies
+sudo apt-get install -y python3-pyaudio
+
+# Install Python packages
+rye add pyaudio SpeechRecognition
