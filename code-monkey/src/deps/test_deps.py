@@ -42,7 +42,7 @@ async def async_function():
         deps = self.graph.find_dependencies(tree, {})
         self.assertEqual(deps, {'os', 'sys.path', 'module1.func1', 'module1.func2', 'function1', 'MyClass', 'CONSTANT', 'async_function'})
 
-    def test_analyze_repository(self):
+    def test_parse_folder(self):
         # Test case 1: Basic import and function definition
         file1_content = """
 import os
@@ -67,7 +67,7 @@ class MyClass:
         # Test case 3: Empty file
         self.create_temp_file('empty.py', '')
 
-        module_dependencies = self.graph.analyze_repository(self.temp_dir)
+        module_dependencies = self.graph.parse_folder(self.temp_dir)
 
         # Check correct number of modules
         self.assertEqual(len(module_dependencies), 5)
@@ -135,7 +135,7 @@ class MyClass:
         self.create_temp_file('file1.py', file1_content)
         self.create_temp_file('file2.py', file2_content)
 
-        self.graph.analyze_repository(self.temp_dir)
+        self.graph.parse_folder(self.temp_dir)
 
         # Modify file2 and perform partial analysis
         file2_content_modified = """
@@ -147,7 +147,7 @@ def new_function():
 """
         self.create_temp_file('file2.py', file2_content_modified)
         self.graph.modules['file2'].explored = False
-        self.graph.analyze_repository(self.temp_dir)
+        self.graph.parse_folder(self.temp_dir)
 
         file2_module = self.graph.modules['file2']
         self.assertTrue(file2_module.explored)
@@ -176,7 +176,7 @@ class MyClass:
         file1_path = self.create_temp_file('file1.py', file1_content)
         self.create_temp_file('file2.py', file2_content)
 
-        self.graph.analyze_repository(self.temp_dir)
+        self.graph.parse_folder(self.temp_dir)
 
         partial_graph = DependencyGraph([file1_path])
         self.assertEqual(len(partial_graph.modules), 1)
@@ -197,7 +197,7 @@ class MyClass:
         self.create_temp_file('file1.py', file1_content)
         self.create_temp_file('file2.py', file2_content)
 
-        self.graph.analyze_repository(self.temp_dir)
+        self.graph.parse_folder(self.temp_dir)
 
         imported_by = self.graph.get_module_imported_by('file1')
         self.assertSetEqual(imported_by, {'file2'})
@@ -216,7 +216,7 @@ class MyClass:
         self.create_temp_file('file1.py', file1_content)
         self.create_temp_file('file2.py', file2_content)
 
-        self.graph.analyze_repository(self.temp_dir)
+        self.graph.parse_folder(self.temp_dir)
 
         imported_by = self.graph.get_dep_imported_by('file1.func1')
         self.assertSetEqual(imported_by, {'file2'})

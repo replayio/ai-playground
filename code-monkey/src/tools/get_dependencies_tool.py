@@ -1,7 +1,7 @@
 import os
 from typing import Dict, Any
 from .tool import Tool
-from deps import DependencyGraph
+from deps.deps import DependencyGraph
 from constants import artifacts_dir
 
 
