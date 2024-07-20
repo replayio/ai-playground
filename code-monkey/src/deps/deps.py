@@ -299,14 +299,14 @@ class DependencyGraph:
 
         return dependencies
 
-    def analyze_repository(self, repo_path: str) -> Dict[str, List[Union[Dependency, DependencyImport]]]:
+    def parse_folder(self, folder: str) -> Dict[str, List[Union[Dependency, DependencyImport]]]:
         """
         Analyze the repository and build the dependency graph.
         Returns a dictionary of module names to their dependencies and dependency imports.
         """
-        print("Debug: Starting analyze_repository")
+        print("Debug: Starting parse_folder")
         module_dependencies = {}
-        for root, _, files in os.walk(repo_path):
+        for root, _, files in os.walk(folder):
             for file in files:
                 if file.endswith(".py"):
                     file_path = os.path.join(root, file)
@@ -395,5 +395,5 @@ class DependencyGraph:
 
 if __name__ == "__main__":
     graph = DependencyGraph()
-    graph.analyze_repository(artifacts_dir)
+    graph.parse_folder(artifacts_dir)
     graph.print_dependencies()
