@@ -1,5 +1,5 @@
 import unittest
-from tools.rg_tool import RgTool
+from ..tools.rg_tool import RgTool
 import logging
 import re
 
