@@ -1,8 +1,8 @@
-import speech_recognition as sr
-from audio_recording import AudioRecording
-import os
-from google.oauth2 import service_account
 import logging
+import speech_recognition as sr
+from google.oauth2 import service_account
+import os
+from audio_recording import AudioRecording
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -14,7 +14,8 @@ class AudioTranscriber:
         if credentials_path:
             self.credentials = service_account.Credentials.from_service_account_file(credentials_path)
         else:
-            raise Exception("Cannot initialize AudioTranscriber. GOOGLE_APPLICATION_CREDENTIALS (env var) are missing.")
+            logger.warning("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. Transcription may not be possible without valid credentials.")
+            self.credentials = None
         logger.debug(f"Initialized AudioTranscriber with credentials: {self.credentials}")
 
     def get_transcript(self, recording: AudioRecording, language: str = "en-US") -> str:
@@ -23,15 +24,27 @@ class AudioTranscriber:
             audio_info = recording.get_audio_info()
             logger.debug(f"Audio info: {audio_info}")
 
+            if audio_info.get('simulated', False):
+                logger.info("[AudioTranscriber] Simulating transcription...")
+                import time
+                time.sleep(2)
+                simulated_transcript = "This is a simulated transcription. The audio playground is working as expected."
+                logger.info(f"Simulated transcript: {simulated_transcript}")
+                return simulated_transcript
+
             audio = sr.AudioData(audio_data.tobytes(), audio_info['frame_rate'], audio_info['sample_width'])
             logger.debug(f"Created AudioData object: {audio}")
+
+            if self.credentials is None:
+                logger.warning("No Google Cloud credentials available. Unable to perform transcription.")
+                return "Transcription unavailable due to missing credentials"
 
             logger.info("[AudioTranscriber] Transcribing audio...")
             logger.debug(f"Credentials: {self.credentials}")
             logger.debug(f"Attempting to transcribe with language: {language}")
 
-            credentials_json = self.credentials.to_json() if self.credentials else None
-            logger.debug(f"Credentials JSON: {credentials_json}")
+            credentials_json = self.credentials.to_json()
+            logger.debug("Converted credentials to JSON for recognize_google_cloud")
 
             try:
                 response = self.recognizer.recognize_google_cloud(
