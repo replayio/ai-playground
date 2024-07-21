@@ -5,7 +5,7 @@ import threading
 import time
 
 class AudioRecording:
-    def __init__(self, file_name):
+    def __init__(self, file_name='recording.wav'):
         self.file_name = file_name
         self.frames = []
         self.sample_width = 2
