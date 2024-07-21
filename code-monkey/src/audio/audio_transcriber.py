@@ -2,6 +2,7 @@ import logging
 import speech_recognition as sr
 from google.oauth2 import service_account
 import os
+import json
 from audio_recording import AudioRecording
 
 logging.basicConfig(level=logging.DEBUG)
@@ -10,11 +11,19 @@ logger = logging.getLogger(__name__)
 class AudioTranscriber:
     def __init__(self):
         self.recognizer = sr.Recognizer()
-        credentials_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-        if credentials_path:
-            self.credentials = service_account.Credentials.from_service_account_file(credentials_path)
+        credentials_file_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_FILE_PATH')
+        credentials_json = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+
+        if credentials_file_path:
+            self.credentials = service_account.Credentials.from_service_account_file(credentials_file_path)
+        elif credentials_json:
+            try:
+                credentials_info = json.loads(credentials_json)
+                self.credentials = service_account.Credentials.from_service_account_info(credentials_info)
+            except json.JSONDecodeError:
+                raise ValueError("Invalid JSON provided in GOOGLE_APPLICATION_CREDENTIALS_JSON")
         else:
-            logger.warning("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. Transcription may not be possible without valid credentials.")
+            logger.warning("No Google Cloud credentials provided. Set either GOOGLE_APPLICATION_CREDENTIALS_FILE_PATH or GOOGLE_APPLICATION_CREDENTIALS_JSON")
             self.credentials = None
         logger.debug(f"Initialized AudioTranscriber with credentials: {self.credentials}")
 
@@ -43,8 +52,11 @@ class AudioTranscriber:
             logger.debug(f"Credentials: {self.credentials}")
             logger.debug(f"Attempting to transcribe with language: {language}")
 
-            credentials_json = self.credentials.to_json()
-            logger.debug("Converted credentials to JSON for recognize_google_cloud")
+            if isinstance(self.credentials, service_account.Credentials):
+                credentials_json = self.credentials.to_json()
+            else:
+                credentials_json = json.dumps(self.credentials)
+            logger.debug("Prepared credentials JSON for recognize_google_cloud")
 
             try:
                 response = self.recognizer.recognize_google_cloud(
