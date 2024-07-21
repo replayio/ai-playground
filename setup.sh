@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# This script sets up the environment for the AI Playground project.
+# It installs necessary dependencies and configures Google Cloud credentials.
+
 install_package() {
     local package_name="$1"
     local package_manager="$2"
