@@ -3,6 +3,22 @@
 # This script sets up the environment for the AI Playground project.
 # It installs necessary dependencies and configures Google Cloud credentials.
 
+# Install portaudio19-dev if not already installed to ensure pyaudio can build
+if ! dpkg -s portaudio19-dev >/dev/null 2>&1; then
+    echo "Installing portaudio19-dev..."
+    sudo apt-get install -y portaudio19-dev
+else
+    echo "portaudio19-dev is already installed."
+fi
+
+# Add check for rye installation and install if not present
+if ! command -v rye &> /dev/null; then
+    echo "Rye is not installed. Installing Rye..."
+    curl -fsSL https://raw.githubusercontent.com/rye/rye/main/install.sh | bash
+else
+    echo "Rye is already installed."
+fi
+
 install_package() {
     local package_name="$1"
     local package_manager="$2"
