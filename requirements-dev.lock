@@ -69,12 +69,26 @@ frozenlist==1.4.1
     # via aiosignal
 fsspec==2024.6.1
     # via huggingface-hub
+google-api-core==2.19.1
+    # via google-cloud-speech
 google-auth==2.32.0
     # via ai-playground
+    # via google-api-core
+    # via google-cloud-speech
+google-cloud-speech==2.26.1
+    # via ai-playground
+googleapis-common-protos==1.63.2
+    # via google-api-core
+    # via grpcio-status
 graphviz==0.20.3
     # via ai-playground
 greenlet==3.0.3
     # via sqlalchemy
+grpcio==1.65.1
+    # via google-api-core
+    # via grpcio-status
+grpcio-status==1.65.1
+    # via google-api-core
 h11==0.14.0
     # via httpcore
 httpcore==1.0.5
@@ -91,6 +105,8 @@ idna==3.7
     # via requests
     # via unstructured-client
     # via yarl
+iniconfig==2.0.0
+    # via pytest
 isort==5.13.2
     # via pylint
 jiter==0.5.0
@@ -161,11 +177,23 @@ packaging==24.1
     # via huggingface-hub
     # via langchain-core
     # via marshmallow
+    # via pytest
     # via unstructured-client
 pathspec==0.12.1
     # via ai-playground
 platformdirs==4.2.2
     # via pylint
+pluggy==1.5.0
+    # via pytest
+proto-plus==1.24.0
+    # via google-api-core
+    # via google-cloud-speech
+protobuf==5.27.2
+    # via google-api-core
+    # via google-cloud-speech
+    # via googleapis-common-protos
+    # via grpcio-status
+    # via proto-plus
 psutil==6.0.0
     # via unstructured
 pyasn1==0.6.0
@@ -187,6 +215,8 @@ pylint==3.2.5
     # via ai-playground
 pypdf==4.2.0
     # via unstructured-client
+pytest==8.3.1
+    # via ai-playground
 python-dateutil==2.9.0.post0
     # via unstructured-client
 python-dotenv==1.0.1
@@ -206,6 +236,7 @@ regex==2024.5.15
     # via nltk
     # via tiktoken
 requests==2.32.3
+    # via google-api-core
     # via huggingface-hub
     # via langchain
     # via langchain-community
