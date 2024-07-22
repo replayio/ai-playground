@@ -18,6 +18,7 @@ class AudioTranscriber:
     def __init__(self):
         self.recognizer = sr.Recognizer()
         self.credentials = self._load_credentials()
+        self.recognizer.credentials = self.credentials
         logger.debug(f"GOOGLE_APPLICATION_CREDENTIALS_JSON: {os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')}")
         logger.debug(f"GOOGLE_APPLICATION_CREDENTIALS_PATH: {os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_PATH')}")
 
@@ -210,7 +211,6 @@ class AudioTranscriber:
                 # Call recognize_google_cloud even for simulated transcription
                 self.recognizer.recognize_google_cloud(
                     audio,
-                    credentials=self.credentials,
                     language=language
                 )
 
@@ -218,7 +218,6 @@ class AudioTranscriber:
             else:
                 response = self.recognizer.recognize_google_cloud(
                     audio,
-                    credentials=self.credentials,
                     language=language
                 )
             print(f"DEBUG: recognize_google_cloud called successfully. Result: {response}")
