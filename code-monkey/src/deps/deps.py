@@ -3,7 +3,7 @@ import ast
 from typing import List, Dict, Optional, Tuple, Set, Union
 from enum import Enum
 from collections import defaultdict
-from ..constants import artifacts_dir
+from src.constants import artifacts_dir
 
 class DependencyType(Enum):
     FUNCTION = 1
@@ -43,42 +43,63 @@ class Dependency:
     def __hash__(self):
         return hash((self.full_name, self.dep_type))
 
+import sys
+
 class DependencyImport:
     """
     Represents an import reference to an actual Dependency.
     """
 
-    def __init__(self, module: str, name: str):
+    def __init__(self, module: str, name: str, alias: Optional[str] = None):
         self.module: str = module
-        self.name: str = name
+        self.name: str = alias if alias else name
+        self.alias: Optional[str] = alias
         self._full_name: str = self._compute_full_name()
+        print(f"Debug: Created DependencyImport - module: {module}, name: {self.name}, alias: {alias}, full_name: {self._full_name}")
 
     def _compute_full_name(self) -> str:
-        if self.module == self.name:
-            return self.module
-        elif self.module:
-            return f"{self.module}.{self.name}"
+        print(f"Debug: Computing full name for module: {self.module}, name: {self.name}, alias: {self.alias}")
+        if self.module:
+            if self.module in sys.stdlib_module_names:
+                full_name = self.module
+                print(f"Debug: Standard library module detected: {self.module}")
+            else:
+                full_name = f"{self.module}.{self.name}"
+                print(f"Debug: User-defined module or submodule detected: {self.module}")
         else:
-            return self.name
+            full_name = self.name
+            print("Debug: No module specified, using name as full name")
+        if self.alias:
+            full_name = f"{full_name} as {self.alias}"
+            print(f"Debug: Alias detected, full name updated: {full_name}")
+        print(f"Debug: Computed full name: {full_name}")
+        return full_name
 
     @property
     def full_name(self):
         return self._full_name
+
+    @full_name.setter
+    def full_name(self, value: str):
+        self._full_name = value
 
     @property
     def module_name(self):
         return self.module
 
     def __repr__(self):
-        return f"DependencyImport(module='{self.module}', name='{self.name}', full_name='{self.full_name}')"
+        return f"DependencyImport(module='{self.module}', name='{self.name}', alias='{self.alias}', full_name='{self.full_name}')"
 
     def __eq__(self, other):
         if not isinstance(other, DependencyImport):
             return False
-        return self.full_name == other.full_name
+        return (self.module == other.module and
+                self.name == other.name and
+                self.alias == other.alias and
+                self.full_name == other.full_name)
 
     def __hash__(self):
-        return hash(self.full_name)
+        return hash((self.module, self.name, self.alias, self.full_name))
 
 
 
@@ -148,7 +169,9 @@ class DependencyGraph:
         """
         Convert line and column numbers to file index.
         """
-        return line_to_index[line] + col
+        if not line_to_index:
+            return 0
+        return line_to_index.get(line, 0) + col
 
     def analyze_file(self, file_path: str, module_name: str) -> None:
         """
@@ -160,7 +183,11 @@ class DependencyGraph:
             print(f"Error: AST is None for file: {file_path}")
             return
 
-        dependencies = self.find_dependencies(tree, line_to_index)
+        if not line_to_index:
+            print(f"Warning: line_to_index is empty for file: {file_path}")
+            line_to_index = {1: 0}  # Fallback to avoid KeyError
+
+        dependencies = self.find_dependencies(tree, line_to_index, module_name)
         print(f"Dependencies found for {module_name}: {dependencies}")
 
         for dep in dependencies:
@@ -228,30 +255,37 @@ class DependencyGraph:
         """
         self.add_module(module_name)
 
-        print(f"Adding dependency: module={module_name}, dep_module={dep_module}, name={name}, is_import={is_import}")
+        print(f"Debug: Adding dependency: module={module_name}, dep_module={dep_module}, name={name}, is_import={is_import}")
 
         if is_import:
-            dependency = DependencyImport(dep_module, name)
-            full_name = dependency.full_name  # This uses the _compute_full_name method
-            existing_dep = next((dep for dep in self.modules[module_name].dependency_imports if dep.full_name == full_name), None)
+            dependency = DependencyImport(dep_module, name, alias=None)
+            print(f"Debug: Created import dependency - module: {dependency.module}, name: {dependency.name}, full_name: {dependency.full_name}")
+            existing_dep = next((dep for dep in self.modules[module_name].dependency_imports if dep.full_name == dependency.full_name), None)
             if not existing_dep:
                 self.modules[module_name].dependency_imports.append(dependency)
-                self.dep_lookup[full_name] = dependency
+                self.dep_lookup[dependency.full_name] = dependency
+                print(f"Debug: Added new import dependency: {dependency.full_name} to module {module_name}")
+            else:
+                print(f"Debug: Import dependency already exists: {dependency.full_name} in module {module_name}")
+            self.imported_by[dependency.full_name].add(module_name)
             self.imported_by[dep_module].add(module_name)
-            print(f"Added import dependency: {full_name} to module {module_name}")
+            print(f"Debug: Updated imported_by[{dependency.full_name}] and imported_by[{dep_module}] with {module_name}")
         else:
             full_name = f"{module_name}.{name}" if module_name else name
             dependency = Dependency(module_name, name, dep_type, start_index, end_index)
+            print(f"Debug: Created direct dependency - full_name: {full_name}, type: {dep_type}")
             existing_dep = next((dep for dep in self.modules[module_name].dependencies if dep.full_name == full_name), None)
             if existing_dep:
                 existing_dep.start_index = start_index
                 existing_dep.end_index = end_index
                 existing_dep.dep_type = dep_type
+                print(f"Debug: Updated existing direct dependency: {full_name} in module {module_name}")
             else:
                 self.modules[module_name].dependencies.append(dependency)
                 self.dep_lookup[full_name] = dependency
-            self.imported_by[dep_module].add(module_name)
-            print(f"Added direct dependency: {full_name} (type: {dep_type}) to module {module_name}")
+                print(f"Debug: Added new direct dependency: {full_name} to module {module_name}")
+            self.imported_by[full_name].add(module_name)
+            print(f"Debug: Updated imported_by[{full_name}] with {module_name}")
 
         self.modules[module_name].explored = True
 
@@ -259,14 +293,16 @@ class DependencyGraph:
         self.modules[module_name].dependencies = list({dep.full_name: dep for dep in self.modules[module_name].dependencies}.values())
         self.modules[module_name].dependency_imports = list({dep.full_name: dep for dep in self.modules[module_name].dependency_imports}.values())
 
-        print(f"Module {module_name} after adding dependency:")
+        print(f"Debug: Module {module_name} after adding dependency:")
         print(f"  Dependencies: {[dep.full_name for dep in self.modules[module_name].dependencies]}")
         print(f"  Dependency Imports: {[dep.full_name for dep in self.modules[module_name].dependency_imports]}")
+        print(f"  Imported by: {self.get_module_imported_by(module_name)}")
 
     def find_dependencies(
         self,
         tree: ast.AST,
-        line_to_index: Dict[int, int]
+        line_to_index: Dict[int, int],
+        module_name: str
     ) -> List[Union[Dependency, DependencyImport]]:
         """
         Extract top-level constructs from a Python AST.
@@ -278,24 +314,37 @@ class DependencyGraph:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
                 end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
-                dependencies.append(Dependency("", node.name, DependencyType.FUNCTION, start_index, end_index))
+                dependencies.append(Dependency(module_name, node.name, DependencyType.FUNCTION, start_index, end_index))
             elif isinstance(node, ast.ClassDef):
                 start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
                 end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
-                dependencies.append(Dependency("", node.name, DependencyType.CLASS, start_index, end_index))
+                dependencies.append(Dependency(module_name, node.name, DependencyType.CLASS, start_index, end_index))
             elif isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
                         start_index = self.get_file_index(node.lineno, node.col_offset, line_to_index)
                         end_index = self.get_file_index(node.end_lineno, node.end_col_offset, line_to_index)
-                        dependencies.append(Dependency("", target.id, DependencyType.VARIABLE, start_index, end_index))
+                        dependencies.append(Dependency(module_name, target.id, DependencyType.VARIABLE, start_index, end_index))
             elif isinstance(node, ast.Import):
+                print("Debug: Analyzing import statement")
                 for alias in node.names:
-                    dependencies.append(DependencyImport(alias.name, alias.asname or alias.name))
+                    print(f"Debug: Import - name: {alias.name}, asname: {alias.asname}")
+                    module = alias.name
+                    name = alias.asname if alias.asname else alias.name
+                    dep_import = DependencyImport(module, name, alias.asname)
+                    dependencies.append(dep_import)
+                    print(f"Debug: Created DependencyImport - module: {dep_import.module}, name: {dep_import.name}, alias: {dep_import.alias}, full_name: {dep_import.full_name}")
+                    print(f"Debug: Is stdlib module: {module in sys.stdlib_module_names}")
             elif isinstance(node, ast.ImportFrom):
-                module_name = node.module or ""
+                print("Debug: Analyzing import from statement")
+                import_module_name = node.module or ""
                 for alias in node.names:
-                    dependencies.append(DependencyImport(module_name, alias.name))
+                    print(f"Debug: ImportFrom - module: {import_module_name}, name: {alias.name}, asname: {alias.asname}")
+                    name = alias.asname if alias.asname else alias.name
+                    dep_import = DependencyImport(import_module_name, name, alias.asname)
+                    dependencies.append(dep_import)
+                    print(f"Debug: Created DependencyImport - module: {dep_import.module}, name: {dep_import.name}, alias: {dep_import.alias}, full_name: {dep_import.full_name}")
+                    print(f"Debug: Is stdlib module: {import_module_name in sys.stdlib_module_names}")
 
         return dependencies
 
