@@ -30,4 +30,4 @@ class GetDependenciesTool(Tool):
             module.name: [dep.name for dep in module.dependencies]
             for module in dependency_graph.modules.values()
         }
-        return {"dependencies": dependencies}
+        return str(dependencies)

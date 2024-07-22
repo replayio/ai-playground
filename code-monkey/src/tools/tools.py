@@ -3,7 +3,6 @@ from typing import List, Dict, Set, Any, Type
 from enum import Enum
 
 from tools.tool import Tool
-from tools.get_dependencies_tool import GetDependenciesTool
 from tools.read_file_tool import ReadFileTool
 from tools.write_file_tool import WriteFileTool
 from tools.ask_user_tool import AskUserTool
@@ -35,7 +34,6 @@ def get_tool_specs(tool_classes: List[Tool]):
 
 
 all_tool_classes = [
-    GetDependenciesTool,
     ReadFileTool,
     WriteFileTool,
     AskUserTool,

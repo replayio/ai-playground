@@ -160,6 +160,8 @@ mypy-extensions==1.0.0
     # via unstructured-client
 nest-asyncio==1.6.0
     # via unstructured-client
+networkx==3.3
+    # via ai-playground
 nltk==3.8.1
     # via unstructured
 numpy==1.26.4
