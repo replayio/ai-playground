@@ -1,6 +1,6 @@
-from agents import BaseAgent
+from tool_user import  BaseAgent
 from models import Model, Claude
-from tool_user import ToolUser
+from tool_user import ToolSpec
 from tools.invoke_agent_tool import InvokeAgentTool
 from tools.read_file_tool import ReadFileTool
 from tools.write_file_tool import WriteFileTool
@@ -12,6 +12,7 @@ from tools.ask_user_tool import AskUserTool
 from tools.run_test_tool import RunTestTool
 from tools.exec_tool import ExecTool
 from typing import List, Type
+from code_context import CodeContext
 
 class Agent(BaseAgent):
     model: Model
@@ -29,9 +30,9 @@ class Manager(Agent):
 3. Use tools only if necessary.
 4. If you have low confidence in a response or don't understand an instruction, explain why and use the ask_user tool to gather clarifications.
 """
-    tools = [
-        ToolUser(InvokeAgentTool, ["EngineeringPlanner", "Engineer"]),
-        ToolUser(AskUserTool, []),
+    tool_specs = [
+        ToolSpec(InvokeAgentTool, ["EngineeringPlanner", "Engineer"]),
+        ToolSpec(AskUserTool, []),
     ]
 
 
@@ -44,9 +45,9 @@ class EngineeringPlanner(Agent):
 5. You always try to find proof for requirement completeness before jumping to conclusions.
 6. You are enthusiastic about working with the user on making sure that all requirements are understood and implemented.
 """
-    tools = [
-        ToolUser(AskUserTool, []),
-        ToolUser(InvokeAgentTool, ["CodeAnalyst"]),
+    tool_specs = [
+        ToolSpec(AskUserTool, []),
+        ToolSpec(InvokeAgentTool, ["CodeAnalyst"]),
     ]
 
 
@@ -60,8 +61,8 @@ class Engineer(Agent):
 # TODO: Add a mechanism to subdivide engineering tasks into smaller tasks upon discovery.
 6. Upon reviewing reports you check for task completeness. As long as there are more obvious , you ask the CodeAnalyst agent to find relevant code locations, and then ask the coder to change them, and/or the debugger to test them.
 """
-    tools = [
-        ToolUser(InvokeAgentTool, ["CodeAnalyst", "Coder", "Debugger"]),
+    tool_specs = [
+        ToolSpec(InvokeAgentTool, ["CodeAnalyst", "Coder", "Debugger"]),
     ]
 
 
@@ -72,7 +73,7 @@ class CodeAnalyst(Agent):
 3. You can read the code of specific classes, functions etc. but you cannot change any code.
 4. Given high-level requirements, you are required to identify which classes, functions and pieces of code require changing.
 """
-    tools = [
+    tool_specs = [
         # TODO: All code analysis + code reader tools.
     ]
 
@@ -84,14 +85,23 @@ class Coder(Agent):
 4. Don't retry failed commands.
 5. Don't make white-space-only changes to files.
 """
-    tools = [
-        ToolUser(ReadFileTool, []),
-        ToolUser(WriteFileTool, []),
-        ToolUser(CreateFileTool, []),
-        ToolUser(RenameFileTool, []),
-        ToolUser(DeleteFileTool, []),
-        ToolUser(ReplaceInFileTool, []),
+    tool_specs = [
+        ToolSpec(ReadFileTool, []),
+        ToolSpec(WriteFileTool, []),
+        ToolSpec(CreateFileTool, []),
+        ToolSpec(RenameFileTool, []),
+        ToolSpec(DeleteFileTool, []),
+        ToolSpec(ReplaceInFileTool, []),
     ]
+    
+    def set_context(self, context: CodeContext):
+        self.context = context
+
+    def prepare_prompt(self, prompt: str) -> str:
+        return f"""
+These are all files: {self.context.known_files}.
+Query: {prompt.strip()}
+    """.strip()
 
 
 class Debugger(Agent):
@@ -102,9 +112,9 @@ class Debugger(Agent):
 4. If a test fails or a command execution encounters an error, provide detailed information about the failure or error.
 5. Suggest potential fixes or next steps based on test results or command outputs.
 """
-    tools = [
-        ToolUser(RunTestTool, []),
-        ToolUser(ExecTool, []),
+    tool_specs = [
+        ToolSpec(RunTestTool, []),
+        ToolSpec(ExecTool, []),
     ]
 
 

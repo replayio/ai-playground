@@ -23,12 +23,15 @@ class ModelName(Enum):
     Claude = 2
 
 
-def get_tool_spec(tool_class: Type[Tool]) -> Dict[str, Any]:
+def get_tool_spec(tool_class: Tool) -> Dict[str, Any]:
     return {
         "name": tool_class.name,
         "description": tool_class.description,
         "input_schema": tool_class.input_schema,
     }
+
+def get_tool_specs(tool_classes: List[Tool]):
+    return [get_tool_spec(tool) for tool in tool_classes]
 
 
 all_tool_classes = [

@@ -1,6 +1,5 @@
-from agent import ClaudeAgent
-from agents import make_coder
-from pprint import pprint
+
+from agents import Coder
 from code_context import CodeContext
 from constants import load_environment
 
@@ -11,12 +10,11 @@ def main() -> None:
     code_context = CodeContext()
     code_context.copy_src()
 
-    Coder = make_coder(ClaudeAgent)
     coder = Coder(code_context)
 
     print("Go...\n")
 
-    # prompt = "Improve tests for deps.py. Run them and fix everything."
+    prompt = "Summarize main.py."
 
     # TODO:
     # "1. Add a new abstract CodeAnalysisTool class to the tools folder. Make sure it is implemented just like IOTool, and inherits from Tool. 2. Have GetDependenciesTool inherit from it. 3. Fix the GetDependenciesTool to call a new function on the graph that returns an adjacency list format of all imports and imported_by's of the given modules."

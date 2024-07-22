@@ -1,13 +1,11 @@
 from typing import List, Tuple
 from anthropic import Anthropic
 from anthropic.types import Message, MessageParam
-from tools.tools import ModelName, handle_claude_tool_call
+from tools.tools import ModelName, get_tool_specs, handle_claude_tool_call
 from constants import ANTHROPIC_API_KEY
 from token_stats import TokenStats
 from pprint import pprint
-from code_context import CodeContext
-from tool_user import BaseAgent, ToolUser
-from tools.tool import Tool
+from tool_user import BaseAgent
 
 from typing import Set
 
@@ -24,26 +22,12 @@ MAX_TOKENS = 8192
 class Model:
     name: ModelName
     agent: BaseAgent
-    context: CodeContext
-    tools: List[ToolUser] = []
 
-    def __init__(self) -> None:
-        self.context = CodeContext()
+    def __init__(self):
+        pass
 
     def run_prompt(self, prompt: str) -> str:
         raise NotImplementedError("Subclasses must implement run_prompt method")
-
-    def set_context(self, context: CodeContext):
-        self.context = context
-
-    def imbue_prompt(self, query: str) -> str:
-        return f"""
-These are all files: {self.context.known_files}.
-Query: {query}
-    """.strip()
-
-    def makeTools(self) -> List[Tool]:
-        return [tool_user.tool_class(*tool_user.tool_args) for tool_user in self.tools]
 
 
 class Claude(Model):
@@ -60,7 +44,7 @@ class Claude(Model):
         self.token_stats = TokenStats()
 
     def run_prompt(self, prompt: str) -> str:
-        prompt = self._prepare_prompt(prompt)
+        prompt = self.agent.prepare_prompt(prompt)
         modified_files = set()
         had_any_text = False
         assistant_messages = []
@@ -117,7 +101,7 @@ class Claude(Model):
                 model=SELECTED_MODEL,
                 max_tokens=MAX_TOKENS,
                 messages=messages,
-                tools=self.makeTools(),
+                tools=get_tool_specs(self.agent.get_tools()),
                 extra_headers=EXTRA_HEADERS,
             )
         except Exception as err:
@@ -165,9 +149,6 @@ class Claude(Model):
                 )
 
         return had_any_text, final_message_content
-
-    def _prepare_prompt(self, prompt: str) -> str:
-        return self.agent.prepare_prompt(prompt)
 
     def _handle_tool_use(
         self, response_message: dict, modified_files: Set[str]

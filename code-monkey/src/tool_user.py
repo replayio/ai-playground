@@ -11,13 +11,16 @@ from tools.utils import (
     artifacts_dir,
 )
 
-class ToolUser:
+
+class ToolSpec:
     def __init__(self, tool_class: Type[Tool], tool_args: List[Any]):
         self.tool_class = tool_class
         self.tool_args = tool_args
 
+
 class BaseAgent(ABC):
-    tools: List[ToolUser]
+    tool_specs: List[ToolSpec]
+    tools: List[Tool]
     tools_by_name: Dict[str, Tool]
     SYSTEM_PROMPT = "You don't know what to do. Tell the user that they can't use you and must use an agent with a proper SYSTEM_PROMPT instead."
 
@@ -25,18 +28,27 @@ class BaseAgent(ABC):
     def run_prompt(self, prompt: str) -> str:
         pass
 
-    def prepare_prompt(self, prompt: str) -> str:
-        prompt = prompt.strip()
-        print(f'Q: "{prompt}"')
-        return self.imbue_prompt(prompt)
-
     def get_system_prompt(self) -> str:
         return self.SYSTEM_PROMPT
 
-    def get_tools(self) -> dict:
-        if not self.tools_by_name:
-            self.tools_by_name = {tool_user.tool_class(self): tool_user for tool_user in self.tools}
+    @abstractmethod
+    def prepare_prompt(self, prompt: str) -> str:
+        pass
+
+    def get_tools(self) -> Dict[str, Tool]:
+        if not self.tools:
+            self.tools = [
+                spec.tool_class(self, *spec.tool_args) for spec in self.tool_specs
+            ]
+            self.tools_by_name = {
+                tool.name: tool
+                for tool in self.tools
+            }
         return self.tools_by_name
+    
+    def get_tool(self, name: str) -> Dict[str, Tool]:
+        self.get_tools()
+        return self.tools_by_name[name]
 
     def handle_completion(self, had_any_text: bool, modified_files: set) -> None:
         if not had_any_text:
