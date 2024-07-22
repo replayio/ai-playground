@@ -1,54 +1,26 @@
 import os
-from typing import List, Dict
-from tools.tool import Tool
-from abc import ABC, abstractmethod
-from typing import Type, Any
-
 from tools.utils import (
     ask_user,
     show_diff,
-    src_dir,
     artifacts_dir,
 )
+from constants import src_dir
+from models import Model, Claude
+from .base_agent import BaseAgent
 
 
-class ToolSpec:
-    def __init__(self, tool_class: Type[Tool], tool_args: List[Any]):
-        self.tool_class = tool_class
-        self.tool_args = tool_args
+class Agent(BaseAgent):
+    model: Model
 
+    def __init__(self):
+        self.model = Claude(self)
 
-class BaseAgent(ABC):
-    tool_specs: List[ToolSpec]
-    tools: List[Tool]
-    tools_by_name: Dict[str, Tool]
-    SYSTEM_PROMPT = "You don't know what to do. Tell the user that they can't use you and must use an agent with a proper SYSTEM_PROMPT instead."
-
-    @abstractmethod
-    def run_prompt(self, prompt: str) -> str:
+    # Custom Agent initialization goes here, when necessary.
+    def initialize(self):
         pass
 
-    def get_system_prompt(self) -> str:
-        return self.SYSTEM_PROMPT
-
-    @abstractmethod
-    def prepare_prompt(self, prompt: str) -> str:
-        pass
-
-    def get_tools(self) -> Dict[str, Tool]:
-        if not self.tools:
-            self.tools = [
-                spec.tool_class(self, *spec.tool_args) for spec in self.tool_specs
-            ]
-            self.tools_by_name = {
-                tool.name: tool
-                for tool in self.tools
-            }
-        return self.tools_by_name
-    
-    def get_tool(self, name: str) -> Dict[str, Tool]:
-        self.get_tools()
-        return self.tools_by_name[name]
+    def run_prompt(self, prompt: str):
+        return self.model.run_prompt(prompt)
 
     def handle_completion(self, had_any_text: bool, modified_files: set) -> None:
         if not had_any_text:

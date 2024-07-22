@@ -3,8 +3,7 @@ import logging
 import os
 from typing import Dict, Any
 from .tool import Tool
-from ..constants import artifacts_dir  # Corrected this line to use relative import
-
+from constants import artifacts_dir
 
 class RgTool(Tool):
     name = "rg"

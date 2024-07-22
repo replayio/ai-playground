@@ -54,17 +54,12 @@ tool_classes_by_name: Dict[str, Type[Tool]] = {tool.__name__: tool for tool in a
 
 def handle_claude_tool_call(
     id: any,
-    function_name: str,
     input: Dict[str, Any],
     modified_files: Set[str],
-    tools_by_name: Dict[str, Tool],
-) -> List[Dict[str, Any]]:
+    tool: Tool,
+) -> List[Dict[str, Tool]]:
     result = {"type": "tool_result", "tool_use_id": id}
     try:
-        tool = tools_by_name.get(function_name)
-        if tool is None:
-            raise Exception(f"Unknown function: {function_name}")
-
         # Call the handle_tool_call method on the instance
         call_result = tool.handle_tool_call(input)
         result["content"] = call_result
@@ -79,3 +74,4 @@ def handle_claude_tool_call(
         result["is_error"] = True
         result["content"] = str(err)
     return result
+

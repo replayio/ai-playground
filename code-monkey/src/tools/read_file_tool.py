@@ -18,5 +18,4 @@ class ReadFileTool(IOTool):
         file_path = make_file_path(name)
         with open(file_path, "r") as file:
             content = file.read()
-        self.track_modified_file(file_path)
         return content

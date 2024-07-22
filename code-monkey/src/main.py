@@ -1,16 +1,14 @@
 
-from agents import Coder
-from code_context import CodeContext
+from agents.agents import Coder
 from constants import load_environment
 
 def main() -> None:
     print("Initializing...")
 
     load_environment()
-    code_context = CodeContext()
-    code_context.copy_src()
 
-    coder = Coder(code_context)
+    coder = Coder()
+    coder.initialize()
 
     print("Go...\n")
 

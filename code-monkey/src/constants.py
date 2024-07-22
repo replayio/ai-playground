@@ -9,12 +9,5 @@ def load_environment():
   load_dotenv()
   load_dotenv(".env.secret")
 
-# Load API keys
-# OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-MAX_TOKENS = int(os.getenv("MAX_TOKENS") or 1000)
-
-# Prompt Design
-
 # Claude rate limit
 CLAUDE_RATE_LIMIT = 40000  # tokens per minute

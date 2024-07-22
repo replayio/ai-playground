@@ -1,6 +1,4 @@
-from tool_user import  BaseAgent
-from models import Model, Claude
-from tool_user import ToolSpec
+from tools.tool import ToolSpec
 from tools.invoke_agent_tool import InvokeAgentTool
 from tools.read_file_tool import ReadFileTool
 from tools.write_file_tool import WriteFileTool
@@ -13,15 +11,8 @@ from tools.run_test_tool import RunTestTool
 from tools.exec_tool import ExecTool
 from typing import List, Type
 from code_context import CodeContext
+from .agent import Agent
 
-class Agent(BaseAgent):
-    model: Model
-
-    def __init__(self):
-        self.model = Claude(self)
-
-    def run_prompt(self, prompt: str):
-        return self.model.run_prompt(prompt)
 
 class Manager(Agent):
     SYSTEM_PROMPT = """
@@ -78,6 +69,7 @@ class CodeAnalyst(Agent):
     ]
 
 class Coder(Agent):
+    context: CodeContext
     SYSTEM_PROMPT = """
 1. You are "Code Monkey", a programming agent who implements code changes based on very clear specifications.
 2. You should only change the functions, classes or other code that have been specifically mentioned in the specs. Don't worry about changing anything else.
@@ -93,6 +85,11 @@ class Coder(Agent):
         ToolSpec(DeleteFileTool, []),
         ToolSpec(ReplaceInFileTool, []),
     ]
+
+    def initialize(self):
+        code_context = CodeContext()
+        code_context.copy_src()
+        self.set_context(code_context)
     
     def set_context(self, context: CodeContext):
         self.context = context

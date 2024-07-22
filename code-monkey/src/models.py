@@ -1,11 +1,11 @@
+import os
 from typing import List, Tuple
 from anthropic import Anthropic
 from anthropic.types import Message, MessageParam
 from tools.tools import ModelName, get_tool_specs, handle_claude_tool_call
-from constants import ANTHROPIC_API_KEY
 from token_stats import TokenStats
 from pprint import pprint
-from tool_user import BaseAgent
+from agents.base_agent import BaseAgent
 
 from typing import Set
 
@@ -13,6 +13,13 @@ from typing import Set
 SELECTED_MODEL = "claude-3-5-sonnet-20240620"
 EXTRA_HEADERS = {"anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"}
 MAX_TOKENS = 8192
+
+def get_api_key():
+    return os.getenv("ANTHROPIC_API_KEY")
+
+def get_max_tokens():
+    return int(os.getenv("MAX_TOKENS") or 1000)
+
 
 # SELECTED_MODEL = "claude-3-sonnet-20240229"
 # EXTRA_HEADERS = None
@@ -35,12 +42,12 @@ class Claude(Model):
 
     def __init__(self, agent: BaseAgent) -> None:
         self.agent = agent
-        if not ANTHROPIC_API_KEY:
+        if not get_api_key():
             raise Exception(
-                "ANTHROPIC_API_KEY was not defined. Check your .env.secret file"
+                "get_api_key() was not defined. Check your .env.secret file"
             )
         super().__init__()
-        self.client = Anthropic(api_key=ANTHROPIC_API_KEY)
+        self.client = Anthropic(api_key=get_api_key())
         self.token_stats = TokenStats()
 
     def run_prompt(self, prompt: str) -> str:
@@ -99,7 +106,7 @@ class Claude(Model):
                 temperature=0,
                 system=self.agent.get_system_prompt(),
                 model=SELECTED_MODEL,
-                max_tokens=MAX_TOKENS,
+                max_tokens=get_max_tokens(),
                 messages=messages,
                 tools=get_tool_specs(self.agent.get_tools()),
                 extra_headers=EXTRA_HEADERS,
@@ -153,13 +160,16 @@ class Claude(Model):
     def _handle_tool_use(
         self, response_message: dict, modified_files: Set[str]
     ) -> dict:
+        tool_name: str = response_message.name
+        tool = self.agent.get_tool(tool_name)
+        if tool is None:
+            raise Exception(f"Unknown tool: {tool_name}")
+
         return handle_claude_tool_call(
-            self.name,
             response_message.id,
-            response_message.name,
             response_message.input,
             modified_files,
-            self.agent.get_tools(),
+            tool,
         )
 
     def _handle_completion(self, had_any_text: bool, modified_files: Set[str]) -> bool:
