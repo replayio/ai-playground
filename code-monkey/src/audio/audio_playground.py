@@ -1,13 +1,13 @@
 import sys
 import os
-import time
-import keyboard  # Using the keyboard module to detect key presses
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from constants import load_environment
 
 from audio_recording import AudioRecording
 from audio_transcriber import AudioTranscriber
+
+this_dir = os.path.dirname(os.path.abspath(__file__))
 
 def main():
     print("Welcome to the Audio Playground!")
@@ -20,29 +20,24 @@ def main():
         print("Transcription will not be possible without valid credentials.")
         print("Please set the environment variable with the path to your Google Cloud service account key file.")
 
-    try:
-        recording = AudioRecording()
+    recording = AudioRecording(os.path.join(this_dir, "playground_recording.wav"))
 
-        print("Press 'r' to start recording...")
-        while True:
-            if keyboard.is_pressed('r'):
-                break
+    print("Press 'ENTER' to start recording...")
+    input()
 
-        print("Recording started. Press 's' to stop...")
-        recording.start_recording()
+    print("Recording started. Press 'ENTER' to stop...")
+    recording.start_recording()
 
-        while True:
-            if keyboard.is_pressed('s'):
-                recording.stop_recording()
-                print("Recording stopped.")
-                break
+    input()
+    recording.stop_recording()
+    print("Recording stopped.")
 
-        print("Transcribing...")
-        transcriber = AudioTranscriber()
-        transcript = transcriber.get_transcript(recording)
+    print("Transcribing...")
+    transcriber = AudioTranscriber()
+    transcript = transcriber.get_transcript(recording)
 
-        print("\nTranscription result:")
-        print(transcript)
+    print("\nTranscription result:")
+    print(transcript)
 
     print("\nThank you for using Audio Playground!")
 
