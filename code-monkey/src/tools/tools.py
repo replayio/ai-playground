@@ -18,7 +18,7 @@ from tools.io_tool import IOTool
 from tools.invoke_agent_tool import InvokeAgentTool
 
 
-class AgentName(Enum):
+class ModelName(Enum):
     Openai = 1
     Claude = 2
 
@@ -46,35 +46,30 @@ all_tool_classes = [
     InvokeAgentTool,
 ]
 
-tools_by_name: Dict[str, Type[Tool]] = {tool.name: tool for tool in all_tool_classes}
-
-claude_tools: List[Dict[str, Any]] = [get_tool_spec(tool) for tool in all_tool_classes]
+tool_classes_by_name: Dict[str, Type[Tool]] = {tool.__name__: tool for tool in all_tool_classes}
 
 
 def handle_claude_tool_call(
-    agent: AgentName,
     id: any,
     function_name: str,
     input: Dict[str, Any],
     modified_files: Set[str],
+    tools_by_name: Dict[str, Tool],
 ) -> List[Dict[str, Any]]:
     result = {"type": "tool_result", "tool_use_id": id}
     try:
-        tool_class = tools_by_name.get(function_name)
-        if tool_class is None:
+        tool = tools_by_name.get(function_name)
+        if tool is None:
             raise Exception(f"Unknown function: {function_name}")
 
-        # Instantiate the tool
-        tool_instance = tool_class()
-
         # Call the handle_tool_call method on the instance
-        call_result = tool_instance.handle_tool_call(input)
+        call_result = tool.handle_tool_call(input)
         result["content"] = call_result
 
         # Add modified files to the parameter
-        if isinstance(tool_instance, IOTool):
-            modified_files.update(tool_instance.modified_files)
-            tool_instance.clear_modified_files()
+        if isinstance(tool, IOTool):
+            modified_files.update(tool.modified_files)
+            tool.clear_modified_files()
 
     except Exception as err:
         print(f"TOOL CALL ERROR: {traceback.format_exc()}")

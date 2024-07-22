@@ -26,7 +26,7 @@ class InvokeAgentTool(Tool):
         if agent_name in self.agent_names:
             agent_class = agents_by_name.get(agent_name)
             if agent_class:
-                agent = agent_class()  # Create agent without passing arguments
+                agent = agent_class()  # Create agent.
                 return agent.run_prompt(prompt)
 
         raise Exception(f"Agent '{agent_name}' not found or not allowed.")

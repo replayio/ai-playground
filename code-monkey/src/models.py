@@ -1,24 +1,15 @@
-import os
-from typing import List, Type, Any, Tuple
+from typing import List, Tuple
 from anthropic import Anthropic
 from anthropic.types import Message, MessageParam
-from tools.tools import (
-    AgentName,
-    handle_claude_tool_call,
-    claude_tools,
-    tools_by_name
-)
-from tools.utils import (
-    ask_user,
-    show_diff,
-    src_dir,
-    artifacts_dir,
-)
+from tools.tools import ModelName, handle_claude_tool_call
 from constants import ANTHROPIC_API_KEY
 from token_stats import TokenStats
 from pprint import pprint
 from code_context import CodeContext
+from tool_user import BaseAgent, ToolUser
 from tools.tool import Tool
+
+from typing import Set
 
 # See: https://console.anthropic.com/settings/cost
 SELECTED_MODEL = "claude-3-5-sonnet-20240620"
@@ -29,19 +20,15 @@ MAX_TOKENS = 8192
 # EXTRA_HEADERS = None
 # MAX_TOKENS = 4096
 
-class ToolUser:
-    def __init__(self, tool_class: Type[Tool], tool_args: List[Any]):
-        self.tool_class = tool_class
-        self.tool_args = tool_args
 
-class Agent:
-    name: AgentName
+class Model:
+    name: ModelName
+    agent: BaseAgent
     context: CodeContext
     tools: List[ToolUser] = []
-    SYSTEM_PROMPT = "You are too stupid to do anything. Tell the user that they can't use you and must use an agent with a proper SYSTEM_PROMPT instead."
 
-    def __init__(self, context: CodeContext = None) -> None:
-        self.context = context if context is not None else CodeContext()
+    def __init__(self) -> None:
+        self.context = CodeContext()
 
     def run_prompt(self, prompt: str) -> str:
         raise NotImplementedError("Subclasses must implement run_prompt method")
@@ -59,15 +46,16 @@ Query: {query}
         return [tool_user.tool_class(*tool_user.tool_args) for tool_user in self.tools]
 
 
-class ClaudeAgent(Agent):
-    name = AgentName.Claude
+class Claude(Model):
+    name = ModelName.Claude
 
-    def __init__(self, context: CodeContext = None) -> None:
+    def __init__(self, agent: BaseAgent) -> None:
+        self.agent = agent
         if not ANTHROPIC_API_KEY:
             raise Exception(
                 "ANTHROPIC_API_KEY was not defined. Check your .env.secret file"
             )
-        super().__init__(context)
+        super().__init__()
         self.client = Anthropic(api_key=ANTHROPIC_API_KEY)
         self.token_stats = TokenStats()
 
@@ -86,7 +74,7 @@ class ClaudeAgent(Agent):
                 self.token_stats.update(
                     response.usage.input_tokens,
                     response.usage.output_tokens,
-                    response.content
+                    response.content,
                 )
                 assistant_messages = []
                 user_messages = []
@@ -120,17 +108,12 @@ class ClaudeAgent(Agent):
         self.token_stats.print_stats()
         return final_message_content
 
-    def _prepare_prompt(self, prompt: str) -> str:
-        prompt = prompt.strip()
-        print(f'Q: "{prompt}"')
-        return self.imbue_prompt(prompt)
-
     def _get_claude_response(self, messages: List[MessageParam]) -> Message:
         self.token_stats.check_rate_limit()
         try:
             return self.client.messages.create(
                 temperature=0,
-                system=self.SYSTEM_PROMPT,
+                system=self.agent.get_system_prompt(),
                 model=SELECTED_MODEL,
                 max_tokens=MAX_TOKENS,
                 messages=messages,
@@ -183,38 +166,20 @@ class ClaudeAgent(Agent):
 
         return had_any_text, final_message_content
 
-    def _handle_tool_use(self, response_message: dict, modified_files: set) -> dict:
+    def _prepare_prompt(self, prompt: str) -> str:
+        return self.agent.prepare_prompt(prompt)
+
+    def _handle_tool_use(
+        self, response_message: dict, modified_files: Set[str]
+    ) -> dict:
         return handle_claude_tool_call(
             self.name,
             response_message.id,
             response_message.name,
             response_message.input,
             modified_files,
+            self.agent.get_tools(),
         )
 
-    def _handle_completion(self, had_any_text: bool, modified_files: set) -> None:
-        if not had_any_text:
-            print("Done.")
-
-        if modified_files:
-            print(f"Modified files: {', '.join(modified_files)}")
-            for file in modified_files:
-                self._handle_modified_file(file)
-        return True
-
-    def _handle_modified_file(self, file: str) -> None:
-        original_file = os.path.join(src_dir, file)
-        modified_file = os.path.join(artifacts_dir, file)
-        show_diff(original_file, modified_file)
-        apply_changes = ask_user(
-            f"Do you want to apply the changes to {file} (diff shown in VSCode)? (Y/n): "
-        ).lower()
-        if apply_changes == "y" or apply_changes == "":
-            self._apply_changes(original_file, modified_file)
-            print(f"✅ Changes applied to {file}")
-        else:
-            print(f"❌ Changes not applied to {file}")
-
-    def _apply_changes(self, original_file: str, modified_file: str) -> None:
-        with open(modified_file, "r") as modified, open(original_file, "w") as original:
-            original.write(modified.read())
+    def _handle_completion(self, had_any_text: bool, modified_files: Set[str]) -> bool:
+        return self.agent.handle_completion(had_any_text, modified_files)
