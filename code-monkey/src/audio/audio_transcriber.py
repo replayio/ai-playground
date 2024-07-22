@@ -5,6 +5,7 @@ import time
 import base64
 import binascii
 import textwrap
+import tempfile
 import speech_recognition as sr
 from google.oauth2 import service_account
 from google.auth.exceptions import DefaultCredentialsError
@@ -19,16 +20,12 @@ class AudioTranscriber:
         self.recognizer = sr.Recognizer()
         self.credentials = self._load_credentials()
         self.recognizer.credentials = self.credentials
-        logger.debug(f"GOOGLE_APPLICATION_CREDENTIALS_JSON: {os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')}")
-        logger.debug(f"GOOGLE_APPLICATION_CREDENTIALS_PATH: {os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_PATH')}")
 
     def _load_credentials(self):
         logger.debug("Attempting to load Google Cloud credentials")
         credentials_json = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
-        credentials_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_PATH')
 
         logger.debug(f"GOOGLE_APPLICATION_CREDENTIALS_JSON: {credentials_json}")
-        logger.debug(f"GOOGLE_APPLICATION_CREDENTIALS_PATH: {credentials_path}")
 
         if credentials_json:
             logger.debug("Found GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable")
@@ -38,16 +35,8 @@ class AudioTranscriber:
             else:
                 logger.debug("Failed to load credentials from JSON")
             return credentials
-        elif credentials_path:
-            logger.debug("Found GOOGLE_APPLICATION_CREDENTIALS_PATH environment variable")
-            credentials = self._load_credentials_from_file(credentials_path)
-            if credentials:
-                logger.debug("Successfully loaded credentials from file")
-            else:
-                logger.debug("Failed to load credentials from file")
-            return credentials
         else:
-            logger.warning("No Google Cloud credentials provided. Set either GOOGLE_APPLICATION_CREDENTIALS_JSON or GOOGLE_APPLICATION_CREDENTIALS_PATH")
+            logger.warning("No Google Cloud credentials provided. Set GOOGLE_APPLICATION_CREDENTIALS_JSON")
             return None
 
         logger.debug(f"Final credentials state: {'Loaded' if self.credentials else 'Not loaded'}")
@@ -177,13 +166,8 @@ class AudioTranscriber:
             logger.exception(f"Unexpected error loading credentials from file: {e}")
         return None
 
-
-
     def get_transcript(self, recording: AudioRecording, language: str = "en-US") -> str:
         try:
-            print(f"DEBUG: Credentials object: {self.credentials}")
-            print(f"DEBUG: Credentials type: {type(self.credentials)}")
-
             audio_data = recording.load_recording()
             audio_info = recording.get_audio_info()
             logger.debug(f"Audio info: {audio_info}")
@@ -197,48 +181,71 @@ class AudioTranscriber:
             logger.debug(f"Created AudioData object with frame rate: {audio_info['frame_rate']}, sample width: {audio_info['sample_width']}")
             logger.info(f"[AudioTranscriber] Transcribing audio with language: {language}")
 
-            if self.credentials is None:
+            credentials_json = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+            if not credentials_json:
                 logger.error("No Google Cloud credentials available. Unable to perform transcription.")
                 return "Transcription unavailable due to missing credentials"
 
-            print(f"DEBUG: About to call recognize_google_cloud with credentials: {self.credentials}")
-            if audio_info.get('simulated', False):
-                logger.info("[AudioTranscriber] Simulating transcription...")
-                time.sleep(2)
-                simulated_transcript = "This is a simulated transcription. The audio playground is working as expected."
-                logger.info(f"Simulated transcript: {simulated_transcript}")
+            try:
+                credentials_dict = json.loads(credentials_json)
+            except json.JSONDecodeError:
+                logger.error("Invalid JSON in GOOGLE_APPLICATION_CREDENTIALS_JSON")
+                return "Transcription unavailable due to invalid credentials"
 
-                # Call recognize_google_cloud even for simulated transcription
-                self.recognizer.recognize_google_cloud(
-                    audio,
-                    language=language
-                )
+            logger.debug("About to call recognize_google_cloud with credentials JSON")
+            with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+                json.dump(credentials_dict, temp_file)
+                temp_file_path = temp_file.name
 
-                return simulated_transcript
-            else:
-                response = self.recognizer.recognize_google_cloud(
-                    audio,
-                    language=language
-                )
-            print(f"DEBUG: recognize_google_cloud called successfully. Result: {response}")
+            try:
+                if audio_info.get('simulated', False):
+                    logger.info("[AudioTranscriber] Simulating transcription...")
+                    time.sleep(2)
+                    simulated_transcript = "This is a simulated transcription. The audio playground is working as expected."
+                    logger.info(f"Simulated transcript: {simulated_transcript}")
 
-            logger.debug(f"Transcription response type: {type(response)}")
+                    # Call recognize_google_cloud even for simulated transcription
+                    self.recognizer.recognize_google_cloud(
+                        audio,
+                        credentials_json=temp_file_path,
+                        language=language
+                    )
 
-            if not response:
-                logger.warning("Empty response received from Google Cloud")
-                return "Could not transcribe the audio"
+                    return simulated_transcript
+                else:
+                    response = self.recognizer.recognize_google_cloud(
+                        audio,
+                        credentials_json=temp_file_path,
+                        language=language
+                    )
+                logger.debug(f"recognize_google_cloud called successfully. Result: {response}")
 
-            if isinstance(response, str):
-                transcript = response
-            else:
-                transcript = response.get('results', [{}])[0].get('alternatives', [{}])[0].get('transcript', '')
+                logger.debug(f"Transcription response type: {type(response)}")
 
-            if not transcript:
-                logger.warning("No transcript available in the response")
-                return "No transcription available"
+                if not response:
+                    logger.warning("Empty response received from Google Cloud")
+                    return "Could not transcribe the audio"
 
-            logger.info(f"Final transcript: {transcript}")
-            return transcript
+                if isinstance(response, str):
+                    transcript = response
+                else:
+                    transcript = response.get('results', [{}])[0].get('alternatives', [{}])[0].get('transcript', '')
+
+                if not transcript:
+                    logger.warning("No transcript available in the response")
+                    return "No transcription available"
+
+                # Process the transcript
+                transcript = transcript.strip()  # Remove leading/trailing whitespace
+                transcript = transcript.capitalize()  # Capitalize the first letter
+                if not transcript.endswith('.'):
+                    transcript += '.'  # Add a period if not present
+
+                logger.info(f"Final transcript: {transcript}")
+                return transcript
+
+            finally:
+                os.unlink(temp_file_path)
 
         except sr.UnknownValueError:
             logger.warning("Google Cloud Speech could not understand audio")

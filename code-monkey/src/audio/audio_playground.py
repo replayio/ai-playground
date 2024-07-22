@@ -15,11 +15,6 @@ def main():
 
     load_environment()
 
-    if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
-        print("Warning: GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.")
-        print("Transcription will not be possible without valid credentials.")
-        print("Please set the environment variable with the path to your Google Cloud service account key file.")
-
     recording = AudioRecording(os.path.join(this_dir, "playground_recording.wav"))
 
     print("Press 'ENTER' to start recording...")
