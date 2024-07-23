@@ -4,6 +4,7 @@ import numpy as np
 from scipy.spatial.distance import cosine
 from abc import ABC, abstractmethod
 import voyageai
+from typing import List
 
 class Embeddings(ABC):
     def read_files(self, folder):
@@ -55,32 +56,23 @@ class VoyageEmbeddings(Embeddings):
                 except Exception as e:
                     raise Exception(f"Failed to get embeddings for {file}: {str(e)}")
 
-    def run_prompt(self, prompt: str):
+    def run_prompt(self, prompt: str) -> str:
         api_key = os.environ.get('VOYAGE_API_KEY')
         if not api_key:
             raise ValueError("VOYAGE_API_KEY environment variable is not set")
 
         voyageai.api_key = api_key
-        client = voyageai.Client()
+        voyage_client = voyageai.Client()
 
         # Get embedding for the prompt
         try:
-            prompt_embedding = client.embed([prompt], model="voyage-code-2", input_type="document")[0]
+            prompt_embedding = voyage_client.embed([prompt], model="voyage-code-2", input_type="document")[0]
         except Exception as e:
             raise Exception(f"Failed to get embedding for prompt: {str(e)}")
 
         # Find the most similar file
-        max_similarity = -1
-        most_similar_file = None
+        most_similar_file = max(self.embeddings.items(), key=lambda x: 1 - cosine(prompt_embedding, x[1]))[0]
 
-        for file, file_embedding in self.embeddings.items():
-            similarity = 1 - cosine(prompt_embedding, file_embedding)
-            if similarity > max_similarity:
-                max_similarity = similarity
-                most_similar_file = file
-
-        if most_similar_file:
-            with open(most_similar_file, 'r') as f:
-                return f.read()
-        else:
-            return "No matching file found"
+        # Read and return the content of the most similar file
+        with open(most_similar_file, 'r') as f:
+            return f.read()
