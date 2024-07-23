@@ -45,7 +45,7 @@ class TokenStats:
         self.message_type_histogram[type_label] += input_tokens + output_tokens
 
         if self.get_total_tokens() > self.checkpoint * CHECKPOINT_TOKENS:
-            print("WARNING: Token Checkpoint reached. Press ENTER to continue.")
+            print("WARNING: Token checkpoint reached. Press ENTER to continue.")
             input()
             self.checkpoint = ceil(self.get_total_tokens() / CHECKPOINT_TOKENS)
 
