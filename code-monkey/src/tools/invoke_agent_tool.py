@@ -1,30 +1,32 @@
-from typing import Dict, Any, List
+from typing import Type, List, Optional
 from pydantic import BaseModel, Field
-from .tool import Tool
+from langchain_core.tools import BaseTool
+from langchain_core.callbacks import (
+    AsyncCallbackManagerForToolRun,
+)
 from instrumentation import instrument
 
 class InvokeAgentInput(BaseModel):
-    agent_name: str = Field(..., description="Name of the agent to invoke")
-    prompt: str = Field(..., description="Prompt to run with the agent")
+    agent_name: str = Field(description="Name of the agent to invoke")
+    prompt: str = Field(description="Prompt to run with the agent")
 
-class InvokeAgentTool(Tool):
+class InvokeAgentTool(BaseTool):
     """
     A tool for invoking other agents by name and running them with a given prompt.
     """
-    name = "invoke_agent"
-    description = "Invokes another agent by name and runs it with a given prompt"
-    input_schema = InvokeAgentInput
+    name: str = "invoke_agent"
+    description: str = "Invokes another agent by name and runs it with a given prompt"
+    args_schema: Type[BaseModel] = InvokeAgentInput
+
+#    agent_names: List[str]
 
     def __init__(self, agent_names: List[str]):
-        super().__init__()
-        self.agent_names = agent_names
+#        self.agent_names = agent_names
+        pass
 
-    @instrument("handle_tool_call", attributes={ "tool": "InvokeAgentInput" })
-    def handle_tool_call(self, input: Dict[str, Any]) -> str | None:
+    @instrument("Tool._run", ["agent_name", "prompt"], attributes={ "tool": "InvokeAgentInput" })
+    def _run(self, agent_name: str, prompt: str, run_manager: Optional[AsyncCallbackManagerForToolRun])-> None:
         from agents.agents import agents_by_name
-        agent_name = input.get("agent_name")
-        prompt = input.get("prompt")
-
         if agent_name in self.agent_names:
             agent_class = agents_by_name.get(agent_name)
             if agent_class:

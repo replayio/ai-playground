@@ -16,14 +16,13 @@ def ask_user(prompt: str) -> str:
 
 
 def show_diff(original_file: str, modified_file: str) -> str:
+    print(f"Diffing {original_file} and {modified_file}")
     if os.path.exists(original_file) and os.path.exists(modified_file):
         subprocess.run(
             ["code", "--diff", original_file, modified_file],
-            capture_output=True,
-            text=True,
         )
     elif os.path.exists(modified_file):
-        subprocess.run(["code", modified_file], capture_output=True, text=True)
+        subprocess.run(["code", modified_file])
     elif os.path.exists(original_file):
         print("File deleted.")
     else:

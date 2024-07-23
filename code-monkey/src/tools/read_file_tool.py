@@ -1,23 +1,24 @@
-from typing import Dict, Any
-from .io_tool import IOTool
+from pydantic import BaseModel, Field
+from typing import Type, Optional
+from langchain_core.tools import BaseTool
+from langchain_core.callbacks import (
+    AsyncCallbackManagerForToolRun,
+)
 from .utils import make_file_path
 from instrumentation import instrument
 
-class ReadFileTool(IOTool):
-    name = "read_file"
-    description = "Read the contents of the file of given name"
-    input_schema = {
-        "type": "object",
-        "properties": {
-            "fname": {"type": "string"},
-        },
-        "required": ["fname"],
-    }
+class ReadFileToolInput(BaseModel):
+    fname: str = Field(description="The filename to read")
 
-    @instrument("handle_tool_call", attributes={ "tool": "ReadFileTool" })
-    def handle_tool_call(self, input: Dict[str, Any]) -> str | None:
-        name = input["fname"]
-        file_path = make_file_path(name)
+class ReadFileTool(BaseTool):
+    """Tool that returns the contents of a file given the filename"""
+    name: str = "read_file"
+    description: str = "Read the contents of the file of given name"
+    args_schema: Type[BaseModel] = ReadFileToolInput
+
+    @instrument("Tool._run", ["fname"], attributes={ "tool": "ReadFileTool" })
+    def _run(self, fname: str, run_manager: Optional[AsyncCallbackManagerForToolRun] = None) -> str:
+        file_path = make_file_path(fname)
         with open(file_path, "r") as file:
             content = file.read()
         return content

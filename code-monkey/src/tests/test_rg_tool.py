@@ -1,17 +1,14 @@
 import unittest
-from .rg_tool import RgTool
-import logging
+from tools import RgTool
 import re
 
 class TestRgTool(unittest.TestCase):
     def setUp(self):
         self.rg_tool = RgTool()
-        logging.basicConfig(level=logging.DEBUG)
 
     def test_rg_search(self):
         # Test searching for a pattern that should exist
-        result = self.rg_tool.handle_tool_call({"pattern": "class RgTool"})
-        logging.debug(f"Search result: {result}")
+        result = self.rg_tool._run("class RgTool")
 
         # Assert that the result is a non-empty string
         self.assertIsInstance(result, str)

@@ -1,21 +1,9 @@
-import os
-from typing import Set, Dict, Any
-from abc import ABC, abstractmethod
-from .tool import Tool
+from langchain_core.tools import BaseTool
+from langchain_core.callbacks import (
+    dispatch_custom_event,
+)
 from constants import get_artifacts_dir
 
-
-class IOTool(Tool, ABC):
-    def __init__(self):
-        super().__init__()
-        self.modified_files: Set[str] = set()
-
-    def track_modified_file(self, file_path: str):
-        self.modified_files.add(os.path.relpath(file_path, get_artifacts_dir()))
-
-    def clear_modified_files(self):
-        self.modified_files.clear()
-
-    @abstractmethod
-    def handle_tool_call(self, input: Dict[str, Any]) -> str | None:
-        pass
+class IOTool(BaseTool):
+    def notify_file_modified(self, file_path: str):
+        dispatch_custom_event("file_modified", os.path.relpath(file_path, get_artifacts_dir()))

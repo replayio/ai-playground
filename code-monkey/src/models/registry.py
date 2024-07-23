@@ -1,25 +1,25 @@
 from typing import Dict
-from .model import Model, ModelName
-from .msn import parse_msn
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
+from langchain_ollama import ChatOllama
+from langchain_fireworks import ChatFireworks
 
-registry: Dict[str, Model] = {}
+def construct_anthropic(model_name: str, extra_flags: Dict[str, str] | None) -> BaseChatModel:
+    return ChatAnthropic(model_name=model_name, default_headers=extra_flags)
 
-def register_model_service(model_name: str, Service: Model):
-    global registry
+def construct_openai(model_name: str, extra_flags: Dict[str, str] | None) -> BaseChatModel:
+    return ChatOpenAI(model_name=model_name, default_headers=extra_flags)
 
-    if model_name in registry:
-        raise Exception(f"Model {model_name} already registered")
-    
-    registry[model_name] = Service
+def construct_ollama(model_name: str, extra_flags: Dict[str, str] | None) -> BaseChatModel:
+    return ChatOllama(model=model_name)
 
-def get_model_service(msn: str | None) -> Model:
-    # default if no msn provided is Anthropic
-    if msn is None:
-        return registry[ModelName.Anthropic]
-    
-    [ service, _, _ ] = parse_msn(msn)
+def construct_fireworks(model_name: str, extra_flags: Dict[str, str] | None) -> BaseChatModel:
+    return ChatFireworks(model=model_name, default_headers=extra_flags)
 
-    if service not in registry:
-        raise Exception(f"Unknown model service: '{service}'")
-
-    return registry[service]
+registry: Dict[str, BaseChatModel] = {
+    "anthropic": construct_anthropic,
+    "openai": construct_openai,
+    "ollama": construct_ollama,
+    "fireworks": construct_fireworks,
+}

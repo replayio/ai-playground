@@ -34,7 +34,8 @@ class TokenStats:
         self.token_history.append((current_time, input_tokens + output_tokens))
 
         # Remove entries older than 1 minute
-        while self.token_history and current_time - self.token_history[0][0] > 60:
+        expiry_time = current_time - 60
+        while self.token_history and self.token_history[0][0] > expiry_time:
             self.token_history.popleft()
 
         # Update histograms
