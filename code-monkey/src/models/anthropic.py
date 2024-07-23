@@ -1,69 +1,58 @@
 import os
-from typing import List, Tuple
+from enum import StrEnum
+from typing import List, Tuple, Set
 from anthropic import Anthropic
 from anthropic.types import Message, MessageParam
-from tools.tools import ModelName, get_tool_specs, handle_claude_tool_call
+from tools.tools import get_tool_specs, handle_tool_call
 from token_stats import TokenStats
 from pprint import pprint
 from agents.base_agent import BaseAgent
 from instrumentation import current_span, instrument
-from typing import Set
+from .model import Model, ModelName
+from .registry import register_model_service
+from .msn import parse_msn
 
 # See: https://console.anthropic.com/settings/cost
-SELECTED_MODEL = "claude-3-5-sonnet-20240620"
-EXTRA_HEADERS = {"anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"}
+DEFAULT_MSN="anthropic/claude-3-5-sonnet-20240620/anthropic-beta=max-tokens-3-5-sonnet-2024-07-15"
 MAX_TOKENS = 8192
 
-def get_api_key():
-    return os.getenv("ANTHROPIC_API_KEY")
+class EnvVars(StrEnum):
+    API_KEY = "ANTHROPIC_API_KEY"
+    MAX_TOKENS = "MAX_TOKENS"
 
 def get_max_tokens():
-    return int(os.getenv("MAX_TOKENS") or 1000)
+    return int(os.getenv(EnvVars.MAX_TOKENS) or 1000)
 
 
 # SELECTED_MODEL = "claude-3-sonnet-20240229"
 # EXTRA_HEADERS = None
 # MAX_TOKENS = 4096
 
+class AnthropicModel(Model):
+    name = ModelName.Anthropic
 
-class Model:
-    name: ModelName
-    agent: BaseAgent
-
-    def __init__(self):
-        pass
-
-    def run_prompt(self, prompt: str) -> str:
-        raise NotImplementedError("Subclasses must implement run_prompt method")
-
-class NoopModel(Model):
-    name = ModelName.Noop
-
-    @instrument("Model.__init__", attributes={"model": "Noop"})
-    def __init__(self, agent: BaseAgent) -> None:
-        self.agent = agent
+    @instrument("Model.__init__", attributes={"service": "Anthropic" })
+    def __init__(self, agent: BaseAgent, msn: str | None = None) -> None:
         super().__init__()
 
-    @instrument("Model.run_prompt", attributes={"model": "Noop"})
-    def run_prompt(self, prompt: str) -> str:
-        # Noop model just returns the prompt as is.
-        return prompt
-
-class Claude(Model):
-    name = ModelName.Claude
-
-    @instrument("Model.__init__", attributes={"model": "Claude"})
-    def __init__(self, agent: BaseAgent) -> None:
-        self.agent = agent
-        if not get_api_key():
+        api_key = os.getenv(EnvVars.API_KEY)
+        if not api_key:
             raise Exception(
-                "get_api_key() was not defined. Check your .env.secret file"
+                f"API Key was not defined. Make sure {EnvVars.API_KEY} is in your .env.secret file"
             )
-        super().__init__()
-        self.client = Anthropic(api_key=get_api_key())
+
+        self.agent = agent
+
+        if msn is None:
+            msn = DEFAULT_MSN
+        [ _, model, extra_flags ] = parse_msn(msn)
+        print(f"AnthropicModel: model={model}, extra_flags={extra_flags}")
+        self.client = Anthropic(api_key=api_key)
+        self.selected_model = model
+        self.extra_headers = extra_flags
         self.token_stats = TokenStats()
 
-    @instrument("Model.run_prompt", attributes={"model": "Claude"})
+    @instrument("Model.run_prompt", attributes={"service": "Anthropic" })
     def run_prompt(self, prompt: str) -> str:
         current_span().set_attribute("prompt", prompt)
 
@@ -115,18 +104,18 @@ class Claude(Model):
         current_span().set_attribute("final_message_content", final_message_content)
         return final_message_content
 
-    @instrument("Claude._get_claude_response", attributes={"model": "Claude"})
+    @instrument("Claude._get_claude_response", attributes={"service": "Anthropic" })
     def _get_claude_response(self, messages: List[MessageParam]) -> Message:
         self.token_stats.check_rate_limit()
         try:
             response = self.client.messages.create(
                 temperature=0,
                 system=self.agent.get_system_prompt(),
-                model=SELECTED_MODEL,
+                model=self.selected_model,
                 max_tokens=get_max_tokens(),
                 messages=messages,
                 tools=get_tool_specs(self.agent.get_tools()),
-                extra_headers=EXTRA_HEADERS,
+                extra_headers=self.extra_headers,
             )
             current_span().set_attributes({
                 "input_messages": str(messages),
@@ -189,7 +178,7 @@ class Claude(Model):
         if tool is None:
             raise Exception(f"Unknown tool: {tool_name}")
 
-        return handle_claude_tool_call(
+        return handle_tool_call(
             response_message.id,
             response_message.input,
             modified_files,
@@ -198,3 +187,6 @@ class Claude(Model):
 
     def _handle_completion(self, had_any_text: bool, modified_files: Set[str]) -> bool:
         return self.agent.handle_completion(had_any_text, modified_files)
+
+
+register_model_service(ModelName.Anthropic, AnthropicModel)

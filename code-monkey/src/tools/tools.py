@@ -1,6 +1,5 @@
 import traceback
 from typing import List, Dict, Set, Any, Type
-from enum import StrEnum
 
 from tools.tool import Tool
 from tools.read_file_tool import ReadFileTool
@@ -15,12 +14,6 @@ from tools.rg_tool import RgTool
 from tools.exec_tool import ExecTool
 from tools.io_tool import IOTool
 from tools.invoke_agent_tool import InvokeAgentTool
-
-
-class ModelName(StrEnum):
-    Noop = "noop"
-    Openai = "openai"
-    Claude = "claude"
 
 
 def get_tool_spec(tool_class: Tool) -> Dict[str, Any]:
@@ -51,7 +44,7 @@ all_tool_classes = [
 tool_classes_by_name: Dict[str, Type[Tool]] = {tool.__name__: tool for tool in all_tool_classes}
 
 
-def handle_claude_tool_call(
+def handle_tool_call(
     id: any,
     input: Dict[str, Any],
     modified_files: Set[str],

@@ -1,8 +1,6 @@
-
-from uuid import uuid4, UUID
+import os
 from agents.agents import Coder
 from constants import load_environment
-from models import Claude
 from instrumentation import instrument, initialize_tracer
 
 # NB(toshok) this starts the root span for a given conversation involving
@@ -13,7 +11,7 @@ from instrumentation import instrument, initialize_tracer
 def main() -> None:
     print("Initializing...")
 
-    coder = Coder(Claude)
+    coder = Coder(os.getenv("AI_MSN"));
     coder.initialize()
 
     print("Go...\n")

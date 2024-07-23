@@ -6,15 +6,19 @@ from tools.utils import (
     artifacts_dir,
 )
 from constants import src_dir
-from models import Model, Claude
+from models import Model, get_model_service
 from .base_agent import BaseAgent
 from instrumentation import current_span, instrument
 
 class Agent(BaseAgent):
     model: Model
 
-    def __init__(self, ModelClass: Model):
-        self.model = ModelClass(self)
+    def __init__(self, msn: str | None):
+        # TODO(toshok) these two steps should be collapsed and hidden back in the
+        # models/ directory (and replaced with something like this here:
+        #   self.model = construct_model(msn, self)
+        Service = get_model_service(msn)
+        self.model = Service(self, msn)
 
     # Custom Agent initialization goes here, when necessary.
     def initialize(self):
