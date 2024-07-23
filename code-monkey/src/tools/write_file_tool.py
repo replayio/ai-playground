@@ -2,6 +2,7 @@ import os
 from typing import Dict, Any
 from .io_tool import IOTool
 from .utils import make_file_path
+from instrumentation import instrument
 
 class WriteFileTool(IOTool):
     name = "write_file"
@@ -18,6 +19,7 @@ class WriteFileTool(IOTool):
         "required": ["fname", "content"],
     }
 
+    @instrument("handle_tool_call", attributes={ "tool": "WriteFileTool" })
     def handle_tool_call(self, input: Dict[str, Any]) -> str | None:
         name = input["fname"]
         content = input["content"]

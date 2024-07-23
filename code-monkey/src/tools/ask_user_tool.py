@@ -1,5 +1,6 @@
 from typing import Dict, Any
 from .tool import Tool
+from instrumentation import instrument
 
 class AskUserTool(Tool):
     name = "ask_user"
@@ -15,6 +16,7 @@ class AskUserTool(Tool):
         "required": ["prompt"],
     }
 
+    @instrument("handle_tool_call", attributes={ "tool": "AskUserTool" })
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
         prompt = input["prompt"]
         print(prompt)

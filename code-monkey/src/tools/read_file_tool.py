@@ -1,6 +1,7 @@
 from typing import Dict, Any
 from .io_tool import IOTool
 from .utils import make_file_path
+from instrumentation import instrument
 
 class ReadFileTool(IOTool):
     name = "read_file"
@@ -13,6 +14,7 @@ class ReadFileTool(IOTool):
         "required": ["fname"],
     }
 
+    @instrument("handle_tool_call", attributes={ "tool": "ReadFileTool" })
     def handle_tool_call(self, input: Dict[str, Any]) -> str | None:
         name = input["fname"]
         file_path = make_file_path(name)

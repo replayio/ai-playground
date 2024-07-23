@@ -2,6 +2,7 @@ import os
 from typing import Dict, Any
 from .io_tool import IOTool
 from .utils import make_file_path
+from instrumentation import instrument
 
 class RenameFileTool(IOTool):
     name = "rename_file"
@@ -18,6 +19,7 @@ class RenameFileTool(IOTool):
         "required": ["old_name", "new_name"],
     }
 
+    @instrument("handle_tool_call", attributes={ "tool": "RenameFileTool" })
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
         old_name = input["old_name"]
         new_name = input["new_name"]

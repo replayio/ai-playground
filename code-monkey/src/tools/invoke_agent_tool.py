@@ -1,6 +1,7 @@
 from typing import Dict, Any, List
 from pydantic import BaseModel, Field
 from .tool import Tool
+from instrumentation import instrument
 
 class InvokeAgentInput(BaseModel):
     agent_name: str = Field(..., description="Name of the agent to invoke")
@@ -18,6 +19,7 @@ class InvokeAgentTool(Tool):
         super().__init__()
         self.agent_names = agent_names
 
+    @instrument("handle_tool_call", attributes={ "tool": "InvokeAgentInput" })
     def handle_tool_call(self, input: Dict[str, Any]) -> str | None:
         from agents.agents import agents_by_name
         agent_name = input.get("agent_name")

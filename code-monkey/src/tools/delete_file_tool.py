@@ -2,6 +2,7 @@ import os
 from typing import Dict, Any
 from .io_tool import IOTool
 from .utils import make_file_path
+from instrumentation import instrument
 
 class DeleteFileTool(IOTool):
     name = "delete_file"
@@ -17,6 +18,7 @@ class DeleteFileTool(IOTool):
         "required": ["fname"],
     }
 
+    @instrument("handle_tool_call", attributes={ "tool": "DeleteFileTool" })
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
         name = input["fname"]
         file_path = make_file_path(name)

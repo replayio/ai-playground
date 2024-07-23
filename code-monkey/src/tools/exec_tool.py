@@ -4,6 +4,7 @@ from typing import Dict, Any
 from .tool import Tool
 from .utils import get_file_tree, ask_user
 from constants import artifacts_dir
+from instrumentation import instrument
 
 # Set to store approved commands
 approved_commands = set()
@@ -19,6 +20,7 @@ class ExecTool(Tool):
         "required": ["command"],
     }
 
+    @instrument("handle_tool_call", attributes={ "tool": "ExecTool" })
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
         command = input["command"]
         file_tree = get_file_tree(artifacts_dir)

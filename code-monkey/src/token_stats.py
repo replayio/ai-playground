@@ -3,6 +3,7 @@ from collections import deque, Counter
 from constants import CLAUDE_RATE_LIMIT
 from anthropic.types import ContentBlock
 from typing import List
+from instrumentation import tracer
 
 TOP_N = 5
 
@@ -50,7 +51,9 @@ class TokenStats:
                 print(
                     f"💤 Rate limit reached ({tokens_in_last_minute}/min). Sleeping for {sleep_time:.2f} seconds..."
                 )
-                time.sleep(sleep_time)
+                with tracer().start_as_current_span("rate_limit_avoidance") as span:
+                    span.set_attribute("tokens_in_last_minute", tokens_in_last_minute)
+                    time.sleep(sleep_time)
 
     def print_stats(self):
         print("\nToken Statistics:")

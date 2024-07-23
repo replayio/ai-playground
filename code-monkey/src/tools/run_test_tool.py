@@ -3,6 +3,7 @@ import subprocess
 from typing import Dict, Any
 from .tool import Tool
 from .utils import make_file_path
+from instrumentation import instrument
 
 class RunTestTool(Tool):
     name = "run_test"
@@ -18,6 +19,7 @@ class RunTestTool(Tool):
         "required": ["fname"],
     }
 
+    @instrument("handle_tool_call", attributes={ "tool": "RunTestTool" })
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
         name = input["fname"]
         file_path = make_file_path(name)

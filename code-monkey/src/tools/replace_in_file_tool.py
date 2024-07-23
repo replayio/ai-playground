@@ -1,6 +1,7 @@
 from typing import Dict, Any
 from .io_tool import IOTool
 from .utils import make_file_path
+from instrumentation import instrument
 
 class ReplaceInFileTool(IOTool):
     name = "replace_in_file"
@@ -21,6 +22,7 @@ class ReplaceInFileTool(IOTool):
         "required": ["fname", "to_replace", "replacement"],
     }
 
+    @instrument("handle_tool_call", attributes={ "tool": "ReplaceInFileTool" })
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
         name = input["fname"]
         to_replace = input["to_replace"]
