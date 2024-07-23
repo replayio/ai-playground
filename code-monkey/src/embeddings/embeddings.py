@@ -2,9 +2,8 @@ import os
 import fnmatch
 from abc import ABC, abstractmethod
 import voyageai
-
-# Assuming voyageai is already installed and available for import
-# Assuming the existence of a function tokenize_for_embedding that partially tokenizes the content
+import anthropic
+from scipy.spatial.distance import cosine
 
 class Embeddings(ABC):
     def read_files(self, folder):
@@ -36,6 +35,8 @@ class VoyageEmbeddings(Embeddings):
         self.folder = folder
         self.embeddings = {}
         self.embed()
+        self.anthropic_client = anthropic.Anthropic()
+        self.voyage_client = voyageai.Client()
 
     def embed(self):
         files = self.read_files(self.folder)
@@ -46,11 +47,8 @@ class VoyageEmbeddings(Embeddings):
                 chunks = self.chunk_content(content)
                 embeddings = []
                 for chunk in chunks:
-                    # Partial tokenization of the chunk
-                    partial_tokens = tokenize_for_embedding(chunk)
                     # Use the Voyage AI API to create embeddings for each chunk
-                    client = voyageai.Client()
-                    chunk_embedding = client.embed(partial_tokens)
+                    chunk_embedding = self.voyage_client.embed(chunk)
                     embeddings.append(chunk_embedding)
                 # Store the combined embeddings for the file
                 self.embeddings[file] = embeddings
@@ -59,7 +57,38 @@ class VoyageEmbeddings(Embeddings):
         # Split the content into chunks of specified size
         return [content[i:i+chunk_size] for i in range(0, len(content), chunk_size)]
 
+    def get_most_similar_chunks(self, prompt, top_k=3):
+        prompt_embedding = self.voyage_client.embed(prompt)
+        similarities = []
+        for file, chunks in self.embeddings.items():
+            for i, chunk_embedding in enumerate(chunks):
+                similarity = 1 - cosine(prompt_embedding, chunk_embedding)
+                similarities.append((file, i, similarity))
+        return sorted(similarities, key=lambda x: x[2], reverse=True)[:top_k]
+
+    def generate_response(self, prompt, context):
+        messages = [
+            {"role": "human", "content": f"Context:\n{context}\n\nQuestion: {prompt}"}
+        ]
+        response = self.anthropic_client.messages.create(
+            model="claude-3-opus-20240229",
+            messages=messages,
+            max_tokens=1000,
+        )
+        return response.content
+
     def run_prompt(self, prompt: str):
-        # Here you would implement the logic to run the prompt on the stored embeddings
-        # using the Voyage AI API. For now, we'll just return a placeholder response.
-        return f"Running prompt '{prompt}' on Voyage embeddings (not implemented)"
+        similar_chunks = self.get_most_similar_chunks(prompt)
+        context = ""
+        for file, chunk_index, _ in similar_chunks:
+            with open(file, 'r') as f:
+                content = f.read()
+                chunks = self.chunk_content(content)
+                context += f"File: {file}\nChunk {chunk_index}:\n{chunks[chunk_index]}\n\n"
+
+        return self.generate_response(prompt, context)
+
+# Example usage
+# embeddings = VoyageEmbeddings("/path/to/code/folder")
+# response = embeddings.run_prompt("Explain the main function in the code.")
+# print(response)
