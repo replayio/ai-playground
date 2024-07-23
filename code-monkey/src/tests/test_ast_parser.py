@@ -3,7 +3,7 @@ import sys
 import os
 import shutil
 sys.path.append('..')
-from deps.ASTParser import ASTParser
+from deps.ast_parser import ASTParser
 
 class TestASTParser(unittest.TestCase):
     def setUp(self):

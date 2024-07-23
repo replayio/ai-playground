@@ -1,5 +1,5 @@
 from tools.tool import Tool
-from deps.ASTParser import ASTParser
+from deps.ast_parser import ASTParser
 
 class CATool(Tool):
     parser: ASTParser

@@ -37,11 +37,20 @@ class ASTParser:
         for node in ast.walk(self.cache[file_path]):
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    imports.append(alias.name)
+                    imports.append(
+                        {"type": "import", "name": alias.name, "alias": alias.asname}
+                    )
             elif isinstance(node, ast.ImportFrom):
                 module = node.module or ""
                 for alias in node.names:
-                    imports.append(f"{module}.{alias.name}" if module else alias.name)
+                    imports.append(
+                        {
+                            "type": "importfrom",
+                            "module": module,
+                            "name": f"{module}.{alias.name}" if module else alias.name,
+                            "alias": alias.asname,
+                        }
+                    )
         return imports
 
     def get_exports(self, file_path: str) -> List[str]:
