@@ -17,9 +17,10 @@ def main() -> None:
 
     print("Go...\n")
 
-    prompt = """
-1. Modify planner.py to read the prompt value from a local `.prompt.md`, next to the planner.py file.
-"""
+    # Read prompt from .prompt.md file
+    with open('.prompt.md', 'r') as prompt_file:
+        prompt = prompt_file.read()
+
     coder.run_prompt(prompt)
 
 
