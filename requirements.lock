@@ -174,6 +174,7 @@ numpy==1.26.4
     # via faiss-cpu
     # via langchain
     # via langchain-community
+    # via scipy
     # via unstructured
 openai==1.35.13
     # via ai-playground
@@ -283,6 +284,8 @@ requests-toolbelt==1.0.0
     # via unstructured-client
 rsa==4.9
     # via google-auth
+scipy==1.14.0
+    # via ai-playground
 six==1.16.0
     # via langdetect
     # via pynput
