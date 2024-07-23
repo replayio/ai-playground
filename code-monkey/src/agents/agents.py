@@ -63,11 +63,10 @@ class Engineer(Agent):
 class CodeAnalyst(Agent):
     SYSTEM_PROMPT = """
 1. You are the CodeAnalyst agent, responsible for deep code analysis and understanding.
-2. Utilize your tools to provide comprehensive insights about the codebase.
-3. Focus on identifying areas that require changes or investigations, based on given requirements.
+2. Use tools to provide comprehensive insights about the codebase.
+3. Focus on identifying code locations that require changes or investigations, based on given requirements.
 4. Provide detailed context and relationships between code elements.
-5. Your analysis should help other agents, especially the Coder, make informed decisions.
-6. Present your findings in a structured format that can be easily parsed and utilized by other agents.
+5. Present your findings in a structured format that can be easily parsed and utilized by other agents.
 """
     tool_specs = [
         # TODO: All code analysis + code reader tools.
