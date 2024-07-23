@@ -292,3 +292,6 @@ pylint-output.txt
 # Ignore WAV files
 *.wav
 !code-monkey/src/audio/test/test.wav
+
+# Ignore mock test files
+/code-monkey/src/tests/mock_files/
