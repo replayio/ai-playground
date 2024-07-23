@@ -3,6 +3,7 @@ from typing import Dict, Any
 from .tool import Tool
 from deps.deps import DependencyGraph
 from constants import artifacts_dir
+from instrumentation import instrument
 
 
 class GetDependenciesTool(Tool):
@@ -20,6 +21,7 @@ class GetDependenciesTool(Tool):
         "required": ["module_names"],
     }
 
+    @instrument("handle_tool_call", attributes={ "tool": "GetDependenciesTool" })
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
         module_names = input["module_names"]
         module_paths = [

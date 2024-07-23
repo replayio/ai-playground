@@ -6,7 +6,7 @@ from tools.tools import ModelName, get_tool_specs, handle_claude_tool_call
 from token_stats import TokenStats
 from pprint import pprint
 from agents.base_agent import BaseAgent
-
+from instrumentation import current_span, instrument
 from typing import Set
 
 # See: https://console.anthropic.com/settings/cost
@@ -36,10 +36,23 @@ class Model:
     def run_prompt(self, prompt: str) -> str:
         raise NotImplementedError("Subclasses must implement run_prompt method")
 
+class NoopModel(Model):
+    name = ModelName.Noop
+
+    @instrument("Model.__init__", attributes={"model": "Noop"})
+    def __init__(self, agent: BaseAgent) -> None:
+        self.agent = agent
+        super().__init__()
+
+    @instrument("Model.run_prompt", attributes={"model": "Noop"})
+    def run_prompt(self, prompt: str) -> str:
+        # Noop model just returns the prompt as is.
+        return prompt
 
 class Claude(Model):
     name = ModelName.Claude
 
+    @instrument("Model.__init__", attributes={"model": "Claude"})
     def __init__(self, agent: BaseAgent) -> None:
         self.agent = agent
         if not get_api_key():
@@ -50,7 +63,10 @@ class Claude(Model):
         self.client = Anthropic(api_key=get_api_key())
         self.token_stats = TokenStats()
 
+    @instrument("Model.run_prompt", attributes={"model": "Claude"})
     def run_prompt(self, prompt: str) -> str:
+        current_span().set_attribute("prompt", prompt)
+
         prompt = self.agent.prepare_prompt(prompt)
         modified_files = set()
         had_any_text = False
@@ -61,6 +77,7 @@ class Claude(Model):
 
         try:
             while True:
+                # XXX(toshok) number of messages (and number of _bytes_ probably) to honeycomb
                 response = self._get_claude_response(messages)
                 self.token_stats.update(
                     response.usage.input_tokens,
@@ -92,17 +109,17 @@ class Claude(Model):
                         {"role": "user", "content": user_messages},
                     ]
                 )
-        except Exception as err:
+        finally:
             self.token_stats.print_stats()
-            raise err
 
-        self.token_stats.print_stats()
+        current_span().set_attribute("final_message_content", final_message_content)
         return final_message_content
 
+    @instrument("Claude._get_claude_response", attributes={"model": "Claude"})
     def _get_claude_response(self, messages: List[MessageParam]) -> Message:
         self.token_stats.check_rate_limit()
         try:
-            return self.client.messages.create(
+            response = self.client.messages.create(
                 temperature=0,
                 system=self.agent.get_system_prompt(),
                 model=SELECTED_MODEL,
@@ -111,6 +128,13 @@ class Claude(Model):
                 tools=get_tool_specs(self.agent.get_tools()),
                 extra_headers=EXTRA_HEADERS,
             )
+            current_span().set_attributes({
+                "input_messages": str(messages),
+                "response_content": str(response.content),
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens,
+            })
+            return response
         except Exception as err:
             print("##########################################################")
             print("PROMPT ERROR with the following messages:")

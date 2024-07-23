@@ -1,6 +1,6 @@
 import traceback
 from typing import List, Dict, Set, Any, Type
-from enum import Enum
+from enum import StrEnum
 
 from tools.tool import Tool
 from tools.read_file_tool import ReadFileTool
@@ -17,9 +17,10 @@ from tools.io_tool import IOTool
 from tools.invoke_agent_tool import InvokeAgentTool
 
 
-class ModelName(Enum):
-    Openai = 1
-    Claude = 2
+class ModelName(StrEnum):
+    Noop = "noop"
+    Openai = "openai"
+    Claude = "claude"
 
 
 def get_tool_spec(tool_class: Tool) -> Dict[str, Any]:

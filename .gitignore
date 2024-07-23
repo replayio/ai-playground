@@ -54,6 +54,7 @@ coverage/
 # Environments
 .env
 .env.*
+!.env.secret.sample
 .venv
 .venv/
 

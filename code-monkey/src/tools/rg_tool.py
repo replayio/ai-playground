@@ -4,6 +4,7 @@ import os
 from typing import Dict, Any
 from .tool import Tool
 from constants import artifacts_dir
+from instrumentation import instrument
 
 class RgTool(Tool):
     name = "rg"
@@ -21,6 +22,7 @@ class RgTool(Tool):
         "required": ["pattern"],
     }
 
+    @instrument("handle_tool_call", attributes={ "tool": "RgTool" })
     def handle_tool_call(self, input: Dict[str, Any]) -> str:
         pattern = input["pattern"]
         logging.debug(f"artifacts_dir: {artifacts_dir}")

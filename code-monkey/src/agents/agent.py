@@ -1,4 +1,5 @@
 import os
+from uuid import UUID
 from tools.utils import (
     ask_user,
     show_diff,
@@ -7,13 +8,13 @@ from tools.utils import (
 from constants import src_dir
 from models import Model, Claude
 from .base_agent import BaseAgent
-
+from instrumentation import current_span, instrument
 
 class Agent(BaseAgent):
     model: Model
 
-    def __init__(self):
-        self.model = Claude(self)
+    def __init__(self, ModelClass: Model):
+        self.model = ModelClass(self)
 
     # Custom Agent initialization goes here, when necessary.
     def initialize(self):
@@ -22,7 +23,14 @@ class Agent(BaseAgent):
     def run_prompt(self, prompt: str):
         return self.model.run_prompt(prompt)
 
+    @instrument("Agent.handle_completion")
     def handle_completion(self, had_any_text: bool, modified_files: set) -> None:
+        current_span().set_attributes({
+            "had_any_text": had_any_text,
+            "num_modified_files": len(modified_files),
+            "modified_files": str(modified_files)
+        })
+
         if not had_any_text:
             print("Done.")
 
@@ -32,7 +40,12 @@ class Agent(BaseAgent):
                 self._handle_modified_file(file)
         return True
 
+    @instrument("Agent._handle_modified_file")
     def _handle_modified_file(self, file: str) -> None:
+        span = current_span()
+
+        span.set_attribute("file", file)
+
         original_file = os.path.join(src_dir, file)
         modified_file = os.path.join(artifacts_dir, file)
         show_diff(original_file, modified_file)
@@ -40,11 +53,19 @@ class Agent(BaseAgent):
             f"Do you want to apply the changes to {file} (diff shown in VSCode)? (Y/n): "
         ).lower()
         if apply_changes == "y" or apply_changes == "":
+            span.set_attribute("apply_changes", True)
             self._apply_changes(original_file, modified_file)
             print(f"✅ Changes applied to {file}")
         else:
+            span.set_attribute("apply_changes", False)
             print(f"❌ Changes not applied to {file}")
 
+    @instrument("Agent._apply_changes")
     def _apply_changes(self, original_file: str, modified_file: str) -> None:
+        current_span().set_attributes({
+            "original_file": original_file,
+            "modified_file": modified_file,
+        })
+        # TODO(toshok) we probably want the before/after size?  or something about size of the diff
         with open(modified_file, "r") as modified, open(original_file, "w") as original:
             original.write(modified.read())
