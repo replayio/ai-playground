@@ -1,5 +1,8 @@
 import os
 import fnmatch
+import requests
+import numpy as np
+from scipy.spatial.distance import cosine
 from abc import ABC, abstractmethod
 
 class Embeddings(ABC):
@@ -34,15 +37,54 @@ class VoyageEmbeddings(Embeddings):
         self.embed()
 
     def embed(self):
+        api_key = os.environ.get('VOYAGE_API_KEY')
+        if not api_key:
+            raise ValueError("VOYAGE_API_KEY environment variable is not set")
+
         files = self.read_files(self.folder)
         for file in files:
             with open(file, 'r') as f:
                 content = f.read()
-                # Here you would use the Voyage AI API to create embeddings
-                # For now, we'll just store the content as a placeholder
-                self.embeddings[file] = content
+                # Use the Voyage AI API to create embeddings
+                response = requests.post(
+                    'https://api.voyageai.com/v1/models/voyage-code-2/embeddings',
+                    headers={'Authorization': f"Bearer {api_key}"},
+                    json={'text': content}
+                )
+                if response.status_code == 200:
+                    self.embeddings[file] = response.json()
+                else:
+                    raise Exception(f"Failed to get embeddings for {file}, status code: {response.status_code}")
 
     def run_prompt(self, prompt: str):
-        # Here you would implement the logic to run the prompt on the stored embeddings
-        # using the Voyage AI API. For now, we'll just return a placeholder response.
-        return f"Running prompt '{prompt}' on Voyage embeddings (not implemented)"
+        api_key = os.environ.get('VOYAGE_API_KEY')
+        if not api_key:
+            raise ValueError("VOYAGE_API_KEY environment variable is not set")
+
+        # Get embedding for the prompt
+        response = requests.post(
+            'https://api.voyageai.com/v1/models/voyage-code-2/embeddings',
+            headers={'Authorization': f"Bearer {api_key}"},
+            json={'text': prompt}
+        )
+        if response.status_code != 200:
+            raise Exception(f"Failed to get embedding for prompt, status code: {response.status_code}")
+
+        prompt_embedding = np.array(response.json()['embeddings'][0])
+
+        # Find the most similar file
+        max_similarity = -1
+        most_similar_file = None
+
+        for file, embedding_data in self.embeddings.items():
+            file_embedding = np.array(embedding_data['embeddings'][0])
+            similarity = 1 - cosine(prompt_embedding, file_embedding)
+            if similarity > max_similarity:
+                max_similarity = similarity
+                most_similar_file = file
+
+        if most_similar_file:
+            with open(most_similar_file, 'r') as f:
+                return f.read()
+        else:
+            return "No matching file found"
