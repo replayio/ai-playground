@@ -15,6 +15,7 @@ class ASTParser:
         self.cache: Dict[str, ast.AST] = {}
 
     def parse_file(self, file_path: str) -> None:
+        # TODO: store one tree per file
         if file_path not in self.cache:
             with open(file_path, "r") as file:
                 self.cache[file_path] = ast.parse(file.read(), filename=file_path)
@@ -34,8 +35,6 @@ class ASTParser:
             return ""
 
     def get_imports(self) -> List[Dict[str, Any]]:
-        TODO;
-        # TODO: need tree per file
         imports = []
         for node in ast.walk(self.tree):
             if isinstance(node, ast.Import):
