@@ -1,7 +1,7 @@
 import os
-from ..agents.agents import Coder
-from ..constants import load_environment
-from ..instrumentation import instrument, initialize_tracer
+from agents.agents import Coder
+from constants import load_environment
+from instrumentation import instrument, initialize_tracer
 
 # NB(toshok) this starts the root span for a given conversation involving
 # potentionally multiple agents and possibly several prompts per agent.  In a

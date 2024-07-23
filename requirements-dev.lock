@@ -45,6 +45,8 @@ charset-normalizer==3.3.2
     # via unstructured-client
 click==8.1.7
     # via nltk
+colorlog==6.8.2
+    # via ai-playground
 dataclasses-json==0.6.7
     # via langchain-community
     # via unstructured

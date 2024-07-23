@@ -139,16 +139,18 @@ class AnthropicModel(Model):
         assistant_messages: List[dict],
         user_messages: List[dict],
     ) -> Tuple[bool, str]:
+        import logging
+        logger = logging.getLogger(__name__)
         final_message_content = ""
         for response_message in response.content:
-            # print("RAW RESPONSE:")
-            # pprint(response_message)
+            logger.debug(f"Processing response message: {response_message}")
             assistant_messages.append(response_message)
 
             if response_message.type == "tool_use":
-                user_messages.append(
-                    self._handle_tool_use(response_message, modified_files)
-                )
+                logger.debug(f"Tool used: {response_message.name}")
+                tool_result = self._handle_tool_use(response_message, modified_files)
+                user_messages.append(tool_result)
+                logger.debug(f"Tool result summary: {tool_result['content'][:100] if isinstance(tool_result['content'], str) else ""}...")
             elif response_message.type == "text":
                 had_any_text = True
                 final_message_content = response_message.text
@@ -157,16 +159,18 @@ class AnthropicModel(Model):
                 had_any_text = True
                 final_message_content = response_message.text
                 print(f"ERROR: {final_message_content}")
+                logger.debug(f"Error encountered: {final_message_content}")
                 return had_any_text, final_message_content
             elif response_message.type == "final":
                 had_any_text = True
                 final_message_content = str(response_message)
                 print(f"DONE: {final_message_content}")
+                logger.debug(f"Final message: {final_message_content}")
                 return had_any_text, final_message_content
             else:
-                raise Exception(
-                    f"Unhandled message type: {response_message.type} - {str(response_message)}"
-                )
+                error_msg = f"Unhandled message type: {response_message.type} - {str(response_message)}"
+                logger.debug(f"Error: {error_msg}")
+                raise Exception(error_msg)
 
         return had_any_text, final_message_content
 
