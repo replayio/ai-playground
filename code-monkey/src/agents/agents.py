@@ -9,6 +9,11 @@ from tools.replace_in_file_tool import ReplaceInFileTool
 from tools.ask_user_tool import AskUserTool
 from tools.run_test_tool import RunTestTool
 from tools.exec_tool import ExecTool
+from tools.ca.ca_imports_tool import CAImportsTool
+from tools.ca.ca_exports_tool import CAExportsTool
+from tools.ca.ca_tool import CATool
+from tools.ca.ca_ast_analyzer_tool import CAASTAnalyzerTool
+from tools.ca.ca_dependency_graph_tool import CADependencyGraphTool
 from typing import List, Type
 from code_context import CodeContext
 from .agent import Agent
@@ -69,7 +74,12 @@ class CodeAnalyst(Agent):
 5. Present your findings in a structured format that can be easily parsed and utilized by other agents.
 """
     tool_specs = [
-        # TODO: All code analysis + code reader tools.
+        ToolSpec(ReadFileTool, []),
+        ToolSpec(CAImportsTool, []),
+        ToolSpec(CAExportsTool, []),
+        ToolSpec(CATool, []),
+        ToolSpec(CAASTAnalyzerTool, []),
+        ToolSpec(CADependencyGraphTool, []),
     ]
 
 

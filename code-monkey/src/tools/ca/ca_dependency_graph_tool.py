@@ -2,7 +2,7 @@ import json
 from typing import Dict, Any
 import networkx as nx
 from .ca_tool import CATool
-from deps import ASTParser
+from deps.ast_parser import ASTParser
 from deps.deps_utils import resolve_file_path, resolve_module_path, get_module_name
 
 class CADependencyGraphTool(CATool):

@@ -10,7 +10,7 @@ class TruncatingFormatter(colorlog.ColoredFormatter):
     def format(self, record):
         message = super().format(record)
         if len(message) > 100:
-            return message[:97] + "..."
+            return message[:97] + "...\033[0m"
         return message
 
 

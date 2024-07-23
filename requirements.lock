@@ -155,11 +155,15 @@ langsmith==0.1.85
     # via langchain-core
 lxml==5.2.2
     # via unstructured
+markdown-it-py==3.0.0
+    # via rich
 marshmallow==3.21.3
     # via dataclasses-json
     # via unstructured-client
 mccabe==0.7.0
     # via pylint
+mdurl==0.1.2
+    # via markdown-it-py
 multidict==6.0.5
     # via aiohttp
     # via yarl
@@ -241,6 +245,8 @@ pydantic==2.8.2
     # via openai
 pydantic-core==2.20.1
     # via pydantic
+pygments==2.18.0
+    # via rich
 pylint==3.2.5
     # via ai-playground
 pynput==1.7.7
@@ -283,8 +289,12 @@ requests==2.32.3
     # via unstructured-client
 requests-toolbelt==1.0.0
     # via unstructured-client
+rich==13.7.1
+    # via ai-playground
 rsa==4.9
     # via google-auth
+simple-term-menu==1.6.4
+    # via ai-playground
 six==1.16.0
     # via langdetect
     # via pynput
