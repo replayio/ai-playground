@@ -1,12 +1,12 @@
 import json
 from typing import Dict, Any
-from .ca_tool_base import CATool
-from .ast_parser import ASTParser
-from .utils import resolve_file_path, resolve_module_path, get_module_name
+from .ca_tool import CATool
+from deps import ASTParser
+from deps.deps_utils import resolve_file_path, resolve_module_path
 
-class CAImportsTool(CATool):
-    name = "ca_analyze_imports"
-    description = "Analyze the imports in Python files"
+class CAASTAnalyzerTool(CATool):
+    name = "ca_analyze_ast"
+    description = "Analyze the Abstract Syntax Tree of Python files"
     input_schema = {
         "type": "object",
         "properties": {
@@ -31,10 +31,6 @@ class CAImportsTool(CATool):
             resolve_module_path(m) for m in modules
         ]
 
-        imports_analysis = {}
-        for file_path in all_files:
-            tree = self.parser.parse_file(file_path)
-            module_name = get_module_name(file_path)
-            imports_analysis[module_name] = self.parser.get_imports(tree)
+        summaries = self.parser.summarize_modules(all_files)
 
-        return json.dumps(imports_analysis, indent=1)
+        return json.dumps(summaries, indent=1)
