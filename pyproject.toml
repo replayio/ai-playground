@@ -30,6 +30,7 @@ dependencies = [
     "pytest>=8.3.1",
     "pynput>=1.7.7",
     "networkx>=3.3",
+    "colorlog>=6.8.2",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"

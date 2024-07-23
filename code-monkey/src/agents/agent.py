@@ -25,7 +25,12 @@ class Agent(BaseAgent):
         pass
 
     def run_prompt(self, prompt: str):
-        return self.model.run_prompt(prompt)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"Running prompt: {prompt}")
+        result = self.model.run_prompt(prompt)
+        logger.debug(f"Prompt result: {result}")
+        return result
 
     @instrument("Agent.handle_completion")
     def handle_completion(self, had_any_text: bool, modified_files: set) -> None:
