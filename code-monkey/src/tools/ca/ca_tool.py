@@ -5,5 +5,5 @@ class CATool(Tool):
     parser: ASTParser
 
     def __init__(self):
-        super.__init__()
+        super().__init__()
         self.parser = ASTParser()
