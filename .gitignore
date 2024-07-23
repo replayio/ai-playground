@@ -4,6 +4,7 @@
 
 # Our own stuff
 artifacts
+.prompt.md
 
 # Python
 *.pyc

@@ -76,13 +76,11 @@ class CodeAnalyst(Agent):
 class Coder(Agent):
     context: CodeContext
     SYSTEM_PROMPT = """
-1. You are "Code Monkey", a programming agent who implements code changes based on very clear specifications.
+1. You are a programming agent who implements code changes based on very clear specifications.
 2. You should only change the functions, classes or other code that have been specifically mentioned in the specs. Don't worry about changing anything else.
 3. Use tools only if necessary.
 4. Don't retry failed commands.
-5. Don't make white-space-only changes to files.
-6. For simpler tasks, you have the autonomy to make decisions and implement changes without consulting other agents.
-7. If you need clarification on implementation details, you can use the AskUserTool to communicate directly with the user.
+5. For simpler tasks, you have the autonomy to make decisions and implement changes without consulting other agents.
 """
     tool_specs = [
         # TODO: These tool specs are about 1k tokens.
@@ -92,7 +90,6 @@ class Coder(Agent):
         ToolSpec(RenameFileTool, []),
         ToolSpec(DeleteFileTool, []),
         ToolSpec(ReplaceInFileTool, []),
-        ToolSpec(AskUserTool, []),
     ]
 
     def initialize(self):
