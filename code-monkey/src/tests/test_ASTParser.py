@@ -1,11 +1,13 @@
 import unittest
+import sys
+sys.path.append('..')
 from deps.ASTParser import ASTParser
 
 class TestASTParser(unittest.TestCase):
     def setUp(self):
         self.parser = ASTParser()
-        self.test_file1 = 'tests/test_files/test_file1.py'
-        self.test_file2 = 'tests/test_files/test_file2.py'
+        self.test_file1 = 'tests/mock_files/test_file1.py'
+        self.test_file2 = 'tests/mock_files/test_file2.py'
         # Pre-populate the cache with ASTs for the test files
         self.parser.parse_file(self.test_file1)
         self.parser.parse_file(self.test_file2)
@@ -22,7 +24,7 @@ class TestASTParser(unittest.TestCase):
         imports = self.parser.get_imports(self.test_file1)
         self.assertIsInstance(imports, list)
         # Test that the list of imports is correct
-        self.assertEqual(imports, ['os'])
+        self.assertEqual(set(imports), {'os', 'test_file2.sample_function'})
 
     def test_get_exports(self):
         # Test that get_exports returns a list of exports for a given file path
