@@ -35,9 +35,8 @@ class CADependencyGraphTool(CATool):
         graph = nx.DiGraph()
 
         for file_path in all_files:
-            tree = self.parser.parse_file(file_path)
             module_name = get_module_name(file_path)
-            imports = self.parser.get_imports(tree)
+            imports = self.parser.get_imports(file_path)
 
             for imp in imports:
                 graph.add_edge(module_name, imp)

@@ -9,13 +9,11 @@ class ModuleSummary:
 
 class ASTParser:
     cache: Dict[str, ast.AST]
-    tree: ast.AST
 
     def __init__(self):
         self.cache: Dict[str, ast.AST] = {}
 
-    def parse_file(self, file_path: str) -> None:
-        # TODO: store one tree per file
+    def parse_file(self, file_path: str) -> ast.AST:
         if file_path not in self.cache:
             with open(file_path, "r") as file:
                 self.cache[file_path] = ast.parse(file.read(), filename=file_path)
@@ -34,30 +32,21 @@ class ASTParser:
         else:
             return ""
 
-    def get_imports(self) -> List[Dict[str, Any]]:
+    def get_imports(self, file_path: str) -> List[str]:
         imports = []
-        for node in ast.walk(self.tree):
+        for node in ast.walk(self.cache[file_path]):
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    imports.append(
-                        {"type": "import", "name": alias.name, "alias": alias.asname}
-                    )
+                    imports.append(alias.name)
             elif isinstance(node, ast.ImportFrom):
                 module = node.module or ""
                 for alias in node.names:
-                    imports.append(
-                        {
-                            "type": "importfrom",
-                            "module": module,
-                            "name": f"{module}.{alias.name}" if module else alias.name,
-                            "alias": alias.asname,
-                        }
-                    )
+                    imports.append(f"{module}.{alias.name}" if module else alias.name)
         return imports
 
-    def get_exports(self) -> List[str]:
+    def get_exports(self, file_path: str) -> List[str]:
         exports = []
-        for node in ast.walk(self.tree):
+        for node in ast.walk(self.cache[file_path]):
             if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
                 if any(
                     decorator.id == "export"
@@ -77,23 +66,24 @@ class ASTParser:
                                 ]
                             )
         return exports
-    
-    def summarize_modules(self, files: List[str]) -> ModuleSummary:
-        summaries = []
+
+    def summarize_modules(self, files: List[str]) -> Dict[str, ModuleSummary]:
+        summaries = {}
         for file_path in files:
+            self.parse_file(file_path)  # Ensure the file is parsed
             summary = ModuleSummary()
-            summaries.append(summary)
             summary.functions = [
                 self.get_fully_qualified_name(node)
-                for node in ast.walk(self.tree)
+                for node in ast.walk(self.cache[file_path])
                 if isinstance(node, ast.FunctionDef)
             ]
             summary.classes = [
                 self.get_fully_qualified_name(node)
-                for node in ast.walk(self.tree)
+                for node in ast.walk(self.cache[file_path])
                 if isinstance(node, ast.ClassDef)
             ]
-            summary.imports = self.get_imports()
-            summary.exports = self.get_exports()
+            summary.imports = self.get_imports(file_path)
+            summary.exports = self.get_exports(file_path)
+            summaries[file_path] = summary
 
         return summaries
