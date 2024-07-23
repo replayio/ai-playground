@@ -16,11 +16,8 @@ def main() -> None:
 
     print("Go...\n")
 
-    prompt = """Add a new embeddings/embeddings.py file with an Embeddings class:
-1. The class should have a `read_files` function that takes a folder and uses the logic from copy_src in code_context.py to enumerate all files (respecting gitignore).
-2. A sub class called VoyageEmbeddings should use that function to implement a new `embed` function that reads all those files and creates embeddings for them.
-3. The Embeddings class should have a (maybe abstract) run_prompt(prompt: string) function that runs the prompt on the stored embeddings.
-4. The VoyageEmbeddings class should implement that run_prompt function correspondingly.
+    prompt = """
+Summarize main.py.
 """
     coder.run_prompt(prompt)
 
