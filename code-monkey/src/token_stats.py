@@ -1,4 +1,5 @@
 import time
+from math import ceil
 from collections import deque, Counter
 from constants import CLAUDE_RATE_LIMIT
 from anthropic.types import ContentBlock
@@ -7,12 +8,18 @@ from instrumentation import tracer
 
 TOP_N = 5
 
+CHECKPOINT_TOKENS = 30000
+
 class TokenStats:
+    checkpoint = 1
     def __init__(self):
         self.total_input_tokens = 0
         self.total_output_tokens = 0
         self.token_history = deque()
         self.message_type_histogram = Counter()
+
+    def get_total_tokens(self):
+        return self.total_input_tokens + self.total_output_tokens
 
     def update(
         self,
@@ -36,6 +43,11 @@ class TokenStats:
              for m in message_contents]
         ))
         self.message_type_histogram[type_label] += input_tokens + output_tokens
+
+        if self.get_total_tokens() > self.checkpoint * CHECKPOINT_TOKENS:
+            print("WARNING: Token Checkpoint reached. Press ENTER to continue.")
+            input()
+            self.checkpoint = ceil(self.get_total_tokens() / CHECKPOINT_TOKENS)
 
     def check_rate_limit(self):
         if not self.token_history:
