@@ -17,7 +17,7 @@ from tools.ca.ca_dependency_graph_tool import CADependencyGraphTool
 from typing import List, Type
 from code_context import CodeContext
 from .agent import Agent
-
+from pprint import pprint
 
 class Manager(Agent):
     SYSTEM_PROMPT = """
@@ -105,6 +105,7 @@ class Coder(Agent):
     def initialize(self):
         code_context = CodeContext()
         code_context.copy_src()
+
         self.set_context(code_context)
 
     def set_context(self, context: CodeContext):

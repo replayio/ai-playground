@@ -1,11 +1,9 @@
 import os
 import argparse
 from agents.agents import Coder
-from constants import load_environment
+from constants import load_environment, get_src_dir
 from instrumentation import instrument, initialize_tracer
 from util.logs import setup_logging
-
-src_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 # NB(toshok) this starts the root span for a given conversation involving
@@ -21,7 +19,7 @@ def main(debug: bool = False) -> None:
     coder.initialize()
 
     # Read prompt from .prompt.md file
-    with open(os.path.join(src_dir, ".prompt.md"), "r") as prompt_file:
+    with open(os.path.join(get_src_dir(), ".prompt.md"), "r") as prompt_file:
         prompt = prompt_file.read()
 
     coder.run_prompt(prompt)

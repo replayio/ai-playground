@@ -1,8 +1,6 @@
 import os
 import subprocess
-from typing import Set
 from constants import get_artifacts_dir
-from pathspec import PathSpec
 
 
 def make_file_path(name: str) -> str:
@@ -15,17 +13,6 @@ def make_file_path(name: str) -> str:
 def ask_user(prompt: str) -> str:
     print(prompt)
     return input()
-
-
-def get_file_tree(directory: str, ignore_spec: PathSpec) -> Set[str]:
-    relative_paths = set()
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            full_path = os.path.join(root, file)
-            relative_path = os.path.relpath(full_path, directory)
-            if not ignore_spec.match_file(relative_path):
-                relative_paths.add(relative_path)
-    return relative_paths
 
 
 def show_diff(original_file: str, modified_file: str) -> str:

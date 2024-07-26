@@ -2,7 +2,7 @@ import os
 import subprocess
 from typing import Dict, Any
 from .tool import Tool
-from .utils import get_file_tree, ask_user
+from .utils import ask_user
 from constants import get_artifacts_dir
 from instrumentation import instrument
 
@@ -23,6 +23,7 @@ class ExecTool(Tool):
     @instrument("handle_tool_call", attributes={ "tool": "ExecTool" })
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
         command = input["command"]
+        # TODO: fix this based on copy_src
         file_tree = get_file_tree(get_artifacts_dir())
 
         # Convert matching file names to absolute paths

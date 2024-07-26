@@ -1,11 +1,13 @@
 import os
 from dotenv import load_dotenv
 
-src_dir = os.path.dirname(os.path.abspath(__file__))
-artifacts_dir = os.path.join(src_dir, "..", "artifacts")
+this_dir = os.path.dirname(os.path.abspath(__file__))
+
+src_root_dir = os.path.abspath(os.path.join(this_dir, "../.."))
+artifacts_dir = os.path.abspath(os.path.join(src_root_dir, "artifacts"))
 
 def get_src_dir():
-   return src_dir
+   return src_root_dir
 
 def get_artifacts_dir():
     return artifacts_dir
