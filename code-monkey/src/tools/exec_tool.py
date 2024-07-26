@@ -3,7 +3,7 @@ import subprocess
 from typing import Dict, Any
 from .tool import Tool
 from .utils import get_file_tree, ask_user
-from constants import artifacts_dir
+from constants import get_artifacts_dir
 from instrumentation import instrument
 
 # Set to store approved commands
@@ -23,13 +23,13 @@ class ExecTool(Tool):
     @instrument("handle_tool_call", attributes={ "tool": "ExecTool" })
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
         command = input["command"]
-        file_tree = get_file_tree(artifacts_dir)
+        file_tree = get_file_tree(get_artifacts_dir())
 
         # Convert matching file names to absolute paths
         command_parts = command.split()
         for i, part in enumerate(command_parts):
             if part in file_tree:
-                command_parts[i] = os.path.join(artifacts_dir, part)
+                command_parts[i] = os.path.join(get_artifacts_dir(), part)
 
         modified_command = " ".join(command_parts)
 

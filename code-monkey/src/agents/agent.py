@@ -1,11 +1,9 @@
 import os
-from uuid import UUID
 from tools.utils import (
     ask_user,
     show_diff,
-    artifacts_dir,
 )
-from constants import src_dir
+from constants import get_src_dir, get_artifacts_dir
 from models import Model, get_model_service
 from .base_agent import BaseAgent
 from instrumentation import current_span, instrument
@@ -55,8 +53,8 @@ class Agent(BaseAgent):
 
         span.set_attribute("file", file)
 
-        original_file = os.path.join(src_dir, file)
-        modified_file = os.path.join(artifacts_dir, file)
+        original_file = os.path.join(get_src_dir(), file)
+        modified_file = os.path.join(get_artifacts_dir(), file)
         show_diff(original_file, modified_file)
         apply_changes = ask_user(
             f"Do you want to apply the changes to {file} (diff shown in VSCode)? (Y/n): "

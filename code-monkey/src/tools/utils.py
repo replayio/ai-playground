@@ -1,13 +1,13 @@
 import os
 import subprocess
 from typing import Set
-from constants import artifacts_dir
+from constants import get_artifacts_dir
 from pathspec import PathSpec
 
 
 def make_file_path(name: str) -> str:
-    file_path = os.path.join(artifacts_dir, name)
-    if os.path.commonpath([file_path, artifacts_dir]) != artifacts_dir:
+    file_path = os.path.join(get_artifacts_dir(), name)
+    if os.path.commonpath([file_path, get_artifacts_dir()]) != get_artifacts_dir():
         raise ValueError("Access to file outside artifacts directory is not allowed")
     return file_path
 

@@ -2,7 +2,7 @@ import os
 from typing import Dict, Any
 from .tool import Tool
 from deps.deps import DependencyGraph
-from constants import artifacts_dir
+from constants import get_artifacts_dir
 from instrumentation import instrument
 
 
@@ -25,7 +25,7 @@ class GetDependenciesTool(Tool):
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
         module_names = input["module_names"]
         module_paths = [
-            os.path.join(artifacts_dir, f"{module}.py") for module in module_names
+            os.path.join(get_artifacts_dir, f"{module}.py") for module in module_names()
         ]
         dependency_graph = DependencyGraph(module_paths)
         dependencies = {

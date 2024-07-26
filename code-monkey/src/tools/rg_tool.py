@@ -3,7 +3,7 @@ import logging
 import os
 from typing import Dict, Any
 from .tool import Tool
-from constants import artifacts_dir
+from constants import get_artifacts_dir
 from instrumentation import instrument
 
 class RgTool(Tool):
@@ -25,7 +25,7 @@ class RgTool(Tool):
     @instrument("handle_tool_call", attributes={ "tool": "RgTool" })
     def handle_tool_call(self, input: Dict[str, Any]) -> str:
         pattern = input["pattern"]
-        logging.debug(f"artifacts_dir: {artifacts_dir}")
+        logging.debug(f"get_artifacts_dir(): {get_artifacts_dir()}")
 
         return self._search_with_rg(pattern)
 
