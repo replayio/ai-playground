@@ -4,6 +4,7 @@ from typing import Dict, Any
 from .tool import Tool
 from .utils import ask_user
 from constants import get_artifacts_dir
+from code_context import get_all_src_files
 from instrumentation import instrument
 
 # Set to store approved commands
@@ -24,7 +25,7 @@ class ExecTool(Tool):
     def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
         command = input["command"]
         # TODO: fix this based on copy_src
-        file_tree = get_file_tree(get_artifacts_dir())
+        file_tree = get_all_src_files()
 
         # Convert matching file names to absolute paths
         command_parts = command.split()

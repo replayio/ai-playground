@@ -1,3 +1,5 @@
+import os
+import argparse
 from tools.tool import ToolSpec
 from tools.invoke_agent_tool import InvokeAgentTool
 from tools.read_file_tool import ReadFileTool
@@ -17,7 +19,9 @@ from tools.ca.ca_dependency_graph_tool import CADependencyGraphTool
 from typing import List, Type
 from code_context import CodeContext
 from .agent import Agent
-from pprint import pprint
+from constants import load_environment, get_src_dir
+from instrumentation import initialize_tracer, instrument
+from util.logs import setup_logging
 
 class Manager(Agent):
     SYSTEM_PROMPT = """
@@ -137,3 +141,34 @@ class Debugger(Agent):
 
 agents: List[Type[Agent]] = [Manager, EngineeringPlanner, CodeAnalyst, Coder, Debugger]
 agents_by_name = {agent.__name__: agent for agent in agents}
+
+
+@instrument("run_agent_impl")
+def _run_agent_impl(agent_class: Type[Agent]):
+    parser = argparse.ArgumentParser(
+        description="Run main_planner with optional debug logging"
+    )
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    args = parser.parse_args()
+    setup_logging(args.debug)
+
+    load_environment()
+
+    # Initialize agent.
+    agent = agent_class(os.getenv("AI_MSN"))
+    agent.initialize()
+
+    # Read prompt from .prompt.md file
+    with open(os.path.join(get_src_dir(), ".prompt.md"), "r") as prompt_file:
+        prompt = prompt_file.read()
+
+    agent.run_prompt(prompt)
+    print("DONE")
+
+def run_agent_main(agent_class: Type[Agent]):
+    initialize_tracer(
+        {
+            "agent": agent_class.__name__,
+        }
+    )
+    _run_agent_impl(agent_class)
