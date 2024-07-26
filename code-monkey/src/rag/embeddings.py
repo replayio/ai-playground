@@ -1,13 +1,15 @@
 import os
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.embeddings import VoyageEmbeddings
-from tree_sitter import Parser, Language
+from langchain.embeddings.base import Embeddings
+from langchain.schema import Document
+from tree_sitter import Parser, Language, Tree, Node
 
-CHUNK_LENGTH = 512
+CHUNK_LENGTH: int = 512
 
 SUPPORTED_LANGUAGES: Dict[str, List[str]] = {
     "python": [".py", ".pyw"],
@@ -22,20 +24,20 @@ SUPPORTED_LANGUAGES: Dict[str, List[str]] = {
 
 
 class TreeSitterTextSplitter(RecursiveCharacterTextSplitter):
-    def __init__(self, language: str):
-        lib_path = os.path.join("build", f"{language}.so")
-        lang = Language(lib_path, language)
-        self.language = language
-        self.parser = Parser(lang)
+    def __init__(self, language: str) -> None:
+        lib_path: str = os.path.join("build", f"{language}.so")
+        lang: Language = Language(lib_path, language)
+        self.language: str = language
+        self.parser: Parser = Parser(lang)
 
         super().__init__(chunk_size=CHUNK_LENGTH, chunk_overlap=0)
 
     def split_text(self, text: str) -> List[str]:
-        tree = self.parser.parse(bytes(text, "utf8"))
+        tree: Tree = self.parser.parse(bytes(text, "utf8"))
 
-        chunks = []
+        chunks: List[str] = []
 
-        def traverse_tree(node, start=0):
+        def traverse_tree(node: Node, start: int = 0) -> int:
             if node.end_byte - start >= CHUNK_LENGTH:
                 chunks.append(text[start : node.end_byte])
                 start = node.end_byte
@@ -50,28 +52,30 @@ class TreeSitterTextSplitter(RecursiveCharacterTextSplitter):
 
 
 class CodeEmbedder:
-    def __init__(self, persist_directory: str = "./chroma_db"):
-        self.persist_directory = persist_directory
-        self.embedding_function = self._initialize_embedding_function()
-        self.default_text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=CHUNK_LENGTH,
-            chunk_overlap=0,
-            length_function=len,
+    def __init__(self, persist_directory: str = "./chroma_db") -> None:
+        self.persist_directory: str = persist_directory
+        self.embedding_function: Embeddings = self._initialize_embedding_function()
+        self.default_text_splitter: RecursiveCharacterTextSplitter = (
+            RecursiveCharacterTextSplitter(
+                chunk_size=CHUNK_LENGTH,
+                chunk_overlap=0,
+                length_function=len,
+            )
         )
-        self.vectorstore = Chroma(
+        self.vectorstore: Chroma = Chroma(
             persist_directory=self.persist_directory,
             embedding_function=self.embedding_function,
         )
+        self.extension_to_language: Dict[str, str] = {}
         self._initialize_extension_to_language_map()
 
-    def _initialize_embedding_function(self):
+    def _initialize_embedding_function(self) -> Embeddings:
         if "VOYAGE_API_KEY" in os.environ:
             return VoyageEmbeddings(model="voyage-code-2")
         else:
             return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-    def _initialize_extension_to_language_map(self):
-        self.extension_to_language = {}
+    def _initialize_extension_to_language_map(self) -> None:
         for language, extensions in SUPPORTED_LANGUAGES.items():
             for ext in extensions:
                 self.extension_to_language[ext] = language
@@ -96,18 +100,20 @@ class CodeEmbedder:
                 print(f"File not found: {file_path}")
                 continue
 
-            language = self.get_language_from_extension(file_path)
-            text_splitter = self.get_text_splitter(language)
+            language: Optional[str] = self.get_language_from_extension(file_path)
+            text_splitter: RecursiveCharacterTextSplitter = self.get_text_splitter(
+                language
+            )
 
             try:
-                loader = TextLoader(file_path)
-                documents = loader.load()
+                loader: TextLoader = TextLoader(file_path)
+                documents: List[Document] = loader.load()
 
                 for doc in documents:
                     doc.metadata["language"] = language
                     doc.metadata["file_path"] = file_path
 
-                chunks = text_splitter.split_documents(documents)
+                chunks: List[Document] = text_splitter.split_documents(documents)
 
                 self.vectorstore.add_documents(chunks)
 
@@ -120,11 +126,15 @@ class CodeEmbedder:
 
     def lookup_similar_chunks(
         self, query: str, top_k: int = 5, language: Optional[str] = None
-    ) -> List[Dict]:
-        filter_dict = {"language": language} if language else None
+    ) -> List[Dict[str, str | float]]:
+        filter_dict: Optional[Dict[str, str]] = (
+            {"language": language} if language else None
+        )
 
-        results = self.vectorstore.similarity_search_with_score(
-            query, k=top_k, filter=filter_dict
+        results: List[Tuple[Document, float]] = (
+            self.vectorstore.similarity_search_with_score(
+                query, k=top_k, filter=filter_dict
+            )
         )
 
         return [
@@ -139,12 +149,12 @@ class CodeEmbedder:
 
 
 # Example usage:
-# embedder = CodeEmbedder()
-# file_paths = ["example.py", "example.js", "example.java"]
+# embedder: CodeEmbedder = CodeEmbedder()
+# file_paths: List[str] = ["example.py", "example.js", "example.java"]
 # embedder.init_embeddings(file_paths)
 #
-# query = "How to implement a binary search?"
-# similar_chunks = embedder.lookup_similar_chunks(query)
+# query: str = "How to implement a binary search?"
+# similar_chunks: List[Dict[str, str | float]] = embedder.lookup_similar_chunks(query)
 # for chunk in similar_chunks:
 #     print(f"Language: {chunk['language']}")
 #     print(f"File: {chunk['file_path']}")
