@@ -1,8 +1,9 @@
-import tree_sitter
 from tree_sitter import Language, Parser
 from deepdiff import DeepDiff
 from typing import Dict, Set, Any
 
+
+# WIP: This is just a simple version of a static PDG that collects dependencies between the inputs and outputs of a synchronous function call.
 
 # Based on https://claude.ai/chat/ab75e38c-0b20-4532-bf82-1446776bd273
 class PDG:
@@ -297,22 +298,22 @@ class PDGBuilder:
 if __name__ == "__main__":
     # Example with a module name, class, global variable, and branching logic
     python_code = """
-    TAX_RATE = 0.2
+TAX_RATE = 0.2
 
-    class Employee:
-        def __init__(self, name, salary):
-            self.name = name
-            self.salary = salary
+class Employee:
+    def __init__(self, name, salary):
+        self.name = name
+        self.salary = salary
 
-    def calculate_net_income(employee):
-        gross_income = employee.salary
-        if gross_income > 100000:
-            tax_rate = TAX_RATE * 1.1
-        else:
-            tax_rate = TAX_RATE
-        tax = gross_income * tax_rate
-        net_income = gross_income - tax
-        return net_income
+def calculate_net_income(employee):
+    gross_income = employee.salary
+    if gross_income > 100000:
+        tax_rate = TAX_RATE * 1.1
+    else:
+        tax_rate = TAX_RATE
+    tax = gross_income * tax_rate
+    net_income = gross_income - tax
+    return net_income
     """
 
     module_name = "payroll"
