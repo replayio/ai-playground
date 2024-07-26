@@ -4,6 +4,7 @@ from deepdiff import DeepDiff
 from typing import Dict, Set, Any
 
 
+# Based on https://claude.ai/chat/ab75e38c-0b20-4532-bf82-1446776bd273
 class PDG:
     def __init__(self, graph: Dict[str, Any]):
         self.graph = graph
