@@ -9,7 +9,7 @@ from langchain_core.tools import BaseTool
 from langchain_core.callbacks import (
     AsyncCallbackManagerForToolRun,
 )
-from constants import artifacts_dir
+from constants import get_artifacts_dir
 from instrumentation import instrument
 from .utils import make_file_path
 
@@ -110,7 +110,7 @@ class RunTestTool(BaseTool):
                 test_command,
                 capture_output=True,
                 text=True,
-                cwd=artifacts_dir,
+                cwd=get_artifacts_dir(),
             )
             profiling_data = self.summarize_profiling_output(temp_file_path)
 

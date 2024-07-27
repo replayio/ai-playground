@@ -5,6 +5,7 @@ from constants import get_artifacts_dir
 
 def make_file_path(name: str) -> str:
     file_path = os.path.join(get_artifacts_dir(), name)
+    print(f"Making file path for {name} -> {file_path}")
     if os.path.commonpath([file_path, get_artifacts_dir()]) != get_artifacts_dir():
         raise ValueError("Access to file outside artifacts directory is not allowed")
     return file_path

@@ -2,10 +2,6 @@
 *.secret*
 
 
-# Our own stuff
-artifacts
-.prompt.md
-
 # Python
 *.pyc
 *.pyo
@@ -296,3 +292,10 @@ pylint-output.txt
 
 # Ignore mock test files
 /code-monkey/src/tests/mock_files/
+
+# Ignore the ruff cache
+.ruff_cache/
+
+# Our own stuff
+artifacts/
+.prompt.md

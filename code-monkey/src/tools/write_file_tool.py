@@ -1,4 +1,6 @@
 import os
+import logging
+import traceback
 from pydantic import BaseModel, Field
 from typing import Type, Optional
 from langchain_core.callbacks import (
@@ -20,9 +22,16 @@ class WriteFileTool(IOTool):
 
     @instrument("Tool._run", ["fname", "content"], attributes={ "tool": "WriteFileTool" })
     def _run(self, fname: str, content: str, run_manager: Optional[AsyncCallbackManagerForToolRun] = None) -> None:
+        print(f"****** Writing to file: {fname}")
         file_path = make_file_path(fname)
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, "w") as file:
-            file.write(content)
-        self.notify_file_modified(fname)
-        return None
+        try:
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, "w") as file:
+                file.write(content)
+            self.notify_file_modified(fname)
+            return None
+        except Exception:
+           logging.error("Failed to write file: %s", file_path)
+           traceback.print_exc()
+           # Re-raise the exception
+           raise

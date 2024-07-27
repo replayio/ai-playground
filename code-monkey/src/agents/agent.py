@@ -1,5 +1,4 @@
 import os
-import json
 from typing import Set
 from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -9,7 +8,7 @@ from tools.utils import (
     ask_user,
     show_diff,
 )
-from constants import get_src_dir, get_artifacts_dir
+from constants import get_root_dir, get_artifacts_dir
 from models import parse_msn
 from .base_agent import BaseAgent
 from instrumentation import current_span, instrument
@@ -92,9 +91,9 @@ class Agent(BaseAgent):
                 logger.debug("----")
                 # anthropic seems give us content as a list?
                 if isinstance(event["data"]["output"].content, list):
-                    logger.debug(event["data"]["output"].content[0]["text"])
+                    print(event["data"]["output"].content[0]["text"])
                 else:
-                    logger.debug(event["data"]["output"].content)
+                    print(event["data"]["output"].content)
                 # TODO(toshok) still need to accumulate tokens
                 continue
 
@@ -119,14 +118,13 @@ class Agent(BaseAgent):
         })
 
         if modified_files:
-            print(f"Modified files: {', '.join(modified_files)}")
             for file in modified_files:
                 self.handle_modified_file(file)
         return True
 
     @instrument("Agent.handle_modified_file", ["file"])
-    def _handle_modified_file(self, file: str) -> None:
-        original_file = os.path.join(get_src_dir(), file)
+    def handle_modified_file(self, file: str) -> None:
+        original_file = os.path.join(get_root_dir(), file)
         modified_file = os.path.join(get_artifacts_dir(), file)
         show_diff(original_file, modified_file)
         response = ask_user(

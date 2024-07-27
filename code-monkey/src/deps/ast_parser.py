@@ -1,5 +1,5 @@
 import ast
-from typing import Any, Dict, List
+from typing import Dict, List
 
 class ModuleSummary:
     functions: List[str]

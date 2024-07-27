@@ -1,3 +1,5 @@
+import logging
+import traceback
 from pydantic import BaseModel, Field
 from typing import Type, Optional
 from langchain_core.tools import BaseTool
@@ -19,6 +21,12 @@ class ReadFileTool(BaseTool):
     @instrument("Tool._run", ["fname"], attributes={ "tool": "ReadFileTool" })
     def _run(self, fname: str, run_manager: Optional[AsyncCallbackManagerForToolRun] = None) -> str:
         file_path = make_file_path(fname)
-        with open(file_path, "r") as file:
-            content = file.read()
-        return content
+        try:
+            with open(file_path, "r") as file:
+                content = file.read()
+            return content
+        except Exception:
+           logging.error("Failed to open file for reading: %s", file_path)
+           traceback.print_exc()
+           # Re-raise the exception
+           raise

@@ -1,4 +1,6 @@
 import os
+import logging
+import traceback
 from pydantic import BaseModel, Field
 from typing import Type, Optional
 from langchain_core.callbacks import (
@@ -21,13 +23,13 @@ class CreateFileTool(IOTool):
     @instrument("Tool._run", ["fname", "content"], attributes={ "tool": "CreateFileTool" })
     def _run(self, fname: str, content: str | None = None, run_manager: Optional[AsyncCallbackManagerForToolRun] = None) -> None:
         file_path = make_file_path(fname)
-
-        if os.path.exists(file_path):
-            raise FileExistsError(f"The file {fname} already exists.")
-
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-
-        with open(file_path, "w") as file:
-            file.write(content)
-
-        self.notify_file_modified(fname)
+        try:
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, "x") as file:
+                file.write(content)
+            self.notify_file_modified(fname)
+        except Exception:
+           logging.error("Failed to create file: %s", file_path)
+           traceback.print_exc()
+           # Re-raise the exception
+           raise

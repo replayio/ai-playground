@@ -107,7 +107,7 @@ class Chunker:
             # Add a brief description of the body
             body_node = node.child_by_field_name('body')
             if body_node:
-                summary += f"Body structure:\n"
+                summary += "Body structure:\n"
                 for child in body_node.children:
                     summary += f"- {child.type}\n"
         else:

@@ -19,7 +19,7 @@ from tools import (
 )
 from code_context import CodeContext
 from .agent import Agent
-from constants import load_environment, get_src_dir
+from constants import load_environment, get_root_dir
 from instrumentation import initialize_tracer, instrument
 from util.logs import setup_logging
 
@@ -158,7 +158,7 @@ agents_by_name = {agent.__name__: agent for agent in agents}
 
 
 @instrument("run_agent_impl")
-def _run_agent_impl(agent_class: Type[Agent]):
+async def _run_agent_impl(agent_class: Type[Agent]):
     parser = argparse.ArgumentParser(
         description="Run main_planner with optional debug logging"
     )
@@ -173,16 +173,16 @@ def _run_agent_impl(agent_class: Type[Agent]):
     agent.initialize()
 
     # Read prompt from .prompt.md file
-    with open(os.path.join(get_src_dir(), ".prompt.md"), "r") as prompt_file:
+    with open(os.path.join(get_root_dir(), ".prompt.md"), "r") as prompt_file:
         prompt = prompt_file.read()
 
-    agent.run_prompt(prompt)
+    await agent.run_prompt(prompt)
     print("DONE")
 
-def run_agent_main(agent_class: Type[Agent]):
+async def run_agent_main(agent_class: Type[Agent]):
     initialize_tracer(
         {
             "agent": agent_class.__name__,
         }
     )
-    _run_agent_impl(agent_class)
+    await _run_agent_impl(agent_class)
