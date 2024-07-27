@@ -14,19 +14,22 @@ def parse_msn(msn: str | None) -> Tuple[BaseChatModel, str | None, Dict[str, str
         msn = "anthropic"
     
     split_msn = msn.split("/")
+    split_len = len(split_msn)
 
     if split_msn[0] not in registry:
         raise ValueError(f"Unknown model service: {split_msn[0]}")
 
-    if len(split_msn) == 1:
-        return (registry[split_msn[0]], None, None)
-    
-    if len(split_msn) == 2:
-        return (registry[split_msn[0]], split_msn[1], None)
-    
-    # split_msn length >= 3
-    flags = split_msn[2]
+    ModelServiceClass = registry[split_msn[0]]
+    model_name = None
+    flags_dict = None
 
-    # parse flags (which will be a , separated list of k=v) into a dict
-    flags_dict = dict([ flag.split("=") for flag in flags.split(",") ])
-    return (registry[split_msn[0]], split_msn[1], flags_dict)
+    if split_len >= 2:
+        model_name = split_msn[1]
+
+    if split_len >= 3:
+        flags = split_msn[2]
+
+        # parse flags (which will be a , separated list of k=v) into a dict
+        flags_dict = dict([ flag.split("=") for flag in flags.split(",") ])
+
+    return (ModelServiceClass, model_name, flags_dict)
