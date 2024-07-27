@@ -105,3 +105,21 @@ install_graphviz() {
 # Main script execution
 install_ripgrep
 install_graphviz
+
+# Install Chroma DB using rye
+if ! command -v rye &> /dev/null
+then
+    echo "rye could not be found. Please install rye first."
+    exit 1
+fi
+
+echo "Installing Chroma DB using rye..."
+rye add chromadb
+
+# Verify installation
+if rye run python -c "import chromadb" &> /dev/null; then
+    echo "Chroma DB installed successfully."
+else
+    echo "Failed to install Chroma DB. Please check the error messages above."
+    exit 1
+fi
