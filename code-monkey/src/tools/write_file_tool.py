@@ -22,7 +22,6 @@ class WriteFileTool(IOTool):
 
     @instrument("Tool._run", ["fname", "content"], attributes={ "tool": "WriteFileTool" })
     def _run(self, fname: str, content: str, run_manager: Optional[AsyncCallbackManagerForToolRun] = None) -> None:
-        print(f"****** Writing to file: {fname}")
         file_path = make_file_path(fname)
         try:
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
