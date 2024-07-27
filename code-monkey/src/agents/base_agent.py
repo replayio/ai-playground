@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
 from langchain_core.tools import BaseTool
-from typing import Dict, List
+from typing import List
 
 
 class BaseAgent(ABC):
     tools: List[BaseTool] = None
-    tools_by_name: Dict[str, BaseTool] = None
     SYSTEM_PROMPT = "You don't know what to do. Tell the user that they can't use you and must use an agent with a proper SYSTEM_PROMPT instead."
 
     @abstractmethod
