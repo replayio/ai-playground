@@ -1,35 +1,47 @@
-from typing import Tuple, Dict
+from dataclasses import dataclass
+from typing import Dict, Self
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from .registry import registry
+from .registry import get_model_service_ctor, ChatModelConstructor
 
 # MSN is simile to a DSN ("Data Source Name" used to identify databases) to specify a model api service,
 # a model name/variant, and any extra flags.
 #
 # syntax is: service[/model[/flags]]
-# where flags is a comma separated list of key=value pairs
-def parse_msn(msn: str | None) -> Tuple[BaseChatModel, str | None, Dict[str, str] | None]:
-    if msn is None:
-        # our default
-        msn = "anthropic"
-    
-    split_msn = msn.split("/")
-    split_len = len(split_msn)
+#
+# where flags is a comma separated list of key[=value] pairs.  'key' on its own
+# is treated as a boolean True flag.
 
-    if split_msn[0] not in registry:
-        raise ValueError(f"Unknown model service: {split_msn[0]}")
 
-    ModelServiceClass = registry[split_msn[0]]
-    model_name = None
-    flags_dict = None
+@dataclass
+class MSN:
+    chat_model_ctor: ChatModelConstructor
+    model_name: str | None
+    flags: Dict[str, str | bool] | None
 
-    if split_len >= 2:
-        model_name = split_msn[1]
+    @classmethod
+    def from_string(cls, msn_str: str | None) -> Self:
+        if msn_str is None:
+            # our default
+            msn_str = "anthropic/"
 
-    if split_len >= 3:
-        flags = split_msn[2]
+        split_msn = msn_str.split("/")
 
-        # parse flags (which will be a , separated list of k=v) into a dict
-        flags_dict = dict([ flag.split("=") for flag in flags.split(",") ])
+        chat_model_ctor = get_model_service_ctor(split_msn[0])
+        model_name = split_msn[1] if len(split_msn) >= 2 else ""
+        flags = parse_flags(split_msn[2]) if len(split_msn) >= 3 else None
 
-    return (ModelServiceClass, model_name, flags_dict)
+        return cls(chat_model_ctor, model_name, flags)
+
+    def construct_model(self) -> BaseChatModel:
+        return self.chat_model_ctor(model_name=self.model_name, extra_flags=self.flags)
+
+
+def parse_flags(flags: str) -> Dict[str, str | bool]:
+    # parse the flags into a dict based on k=v pairs (split on the first `=`.).
+    # if there's no '=', v will be True
+    flags_dict = {}
+    for flag in flags.split(","):
+        k, v = flag.split("=", 1)
+        flags_dict[k] = v if v else True
+    return flags_dict

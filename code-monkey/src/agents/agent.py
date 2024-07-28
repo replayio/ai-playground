@@ -9,10 +9,11 @@ from tools.utils import (
     show_diff,
 )
 from constants import get_root_dir, get_artifacts_dir
-from models import parse_msn
+from models import MSN
 from .base_agent import BaseAgent
 from instrumentation import current_span, instrument
 from langgraph.checkpoint.aiosqlite import AsyncSqliteSaver
+
 
 class Agent(BaseAgent):
     model: BaseChatModel
@@ -21,18 +22,15 @@ class Agent(BaseAgent):
         "configurable": {"thread_id": "abc123"},
     }
 
-    @instrument("Agent.__init__", ["msn"])
-    def __init__(self, msn: str | None):
-        [ ChatModel, model, extra_flags ] = parse_msn(msn)
+    @instrument("Agent.__init__", ["msn_str"])
+    def __init__(self, msn_str: str | None):
+        msn = MSN.from_string(msn_str)
 
         # a checkpointer + the thread_id below gives the model a way to save its
         # state so we don't have to accumulate the messages ourselves.
         memory = AsyncSqliteSaver.from_conn_string(":memory:")
         self.model = create_react_agent(
-            ChatModel(
-                model_name=model,
-                extra_flags=extra_flags,
-            ),
+            msn.construct_model(),
             self.tools,
             checkpointer=memory,
         )
@@ -45,6 +43,7 @@ class Agent(BaseAgent):
     @instrument("Agent.run_prompt", ["prompt"])
     async def run_prompt(self, prompt: str):
         import logging
+
         logger = logging.getLogger(__name__)
         logger.debug(f"Running prompt: {prompt}")
 
@@ -53,9 +52,13 @@ class Agent(BaseAgent):
 
         modified_files: Set[str] = set()
 
-        async for event in self.model.astream_events({
-            "messages": [system, msg],
-        }, self.config, version="v2"):
+        async for event in self.model.astream_events(
+            {
+                "messages": [system, msg],
+            },
+            self.config,
+            version="v2",
+        ):
             kind = event["event"]
             if kind == "on_chat_model_start":
                 # for msg in event["data"]["input"]["messages"][0]:
@@ -112,10 +115,12 @@ class Agent(BaseAgent):
 
     @instrument("Agent.handle_completion")
     def handle_completion(self, modified_files: set) -> None:
-        current_span().set_attributes({
-            "num_modified_files": len(modified_files),
-            "modified_files": str(modified_files)
-        })
+        current_span().set_attributes(
+            {
+                "num_modified_files": len(modified_files),
+                "modified_files": str(modified_files),
+            }
+        )
 
         if modified_files:
             for file in modified_files:

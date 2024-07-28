@@ -1,5 +1,5 @@
-from .msn import parse_msn
+from .msn import MSN
 
 __all__ = [
-    "parse_msn",
+    "MSN",
 ]
