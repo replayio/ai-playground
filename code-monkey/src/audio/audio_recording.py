@@ -6,6 +6,7 @@ import threading
 import time
 import random
 
+
 class AudioRecording:
     def __init__(self, file_name, is_test_environment=False):
         self.file_name = file_name
@@ -13,7 +14,9 @@ class AudioRecording:
         self.is_test_environment = is_test_environment
         self.audio = pyaudio.PyAudio() if not is_test_environment else None
         self.stream = None
-        print(f"Initializing AudioRecording {'in test environment' if is_test_environment else 'with real audio'}")
+        print(
+            f"Initializing AudioRecording {'in test environment' if is_test_environment else 'with real audio'}"
+        )
 
     def start_recording(self):
         self.is_recording = True
@@ -21,13 +24,15 @@ class AudioRecording:
             self.stream = self.SimulatedStream()
             print("Starting simulated recording")
         else:
-            self.stream = self.audio.open(format=pyaudio.paInt16,
-                                          channels=1,
-                                          rate=44100,
-                                          input=True,
-                                          frames_per_buffer=1024)
+            self.stream = self.audio.open(
+                format=pyaudio.paInt16,
+                channels=1,
+                rate=44100,
+                input=True,
+                frames_per_buffer=1024,
+            )
             print("Starting real audio recording")
-        self.file = wave.open(self.file_name, 'wb')
+        self.file = wave.open(self.file_name, "wb")
         self.file.setnchannels(1)
         self.file.setsampwidth(2)  # 16-bit audio
         self.file.setframerate(44100)
@@ -39,14 +44,14 @@ class AudioRecording:
             if not self.is_test_environment:
                 self.stream.stop_stream()
             self.stream.close()
-        if hasattr(self, 'file'):
+        if hasattr(self, "file"):
             self.file.close()
         print("Recording stopped")
 
     def load_recording(self):
         if not os.path.exists(self.file_name):
             return None
-        with wave.open(self.file_name, 'rb') as wf:
+        with wave.open(self.file_name, "rb") as wf:
             data = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16)
         return data
 
@@ -54,7 +59,9 @@ class AudioRecording:
         silence_threshold = 300
         silence_duration = 3  # seconds
         silence_count = 0
-        print(f"{'Simulated' if self.is_test_environment else 'Real'} recording thread started")
+        print(
+            f"{'Simulated' if self.is_test_environment else 'Real'} recording thread started"
+        )
         while self.is_recording:
             data = self.stream.read(1024)
             self.file.writeframes(data)
@@ -73,12 +80,12 @@ class AudioRecording:
         return np.max(np.abs(np.frombuffer(data_chunk, dtype=np.int16))) < threshold
 
     def get_audio_info(self):
-        with wave.open(self.file_name, 'rb') as wf:
+        with wave.open(self.file_name, "rb") as wf:
             info = {
-                'sample_width': wf.getsampwidth(),
-                'channels': wf.getnchannels(),
-                'frame_rate': wf.getframerate(),
-                'num_frames': wf.getnframes()
+                "sample_width": wf.getsampwidth(),
+                "channels": wf.getnchannels(),
+                "frame_rate": wf.getframerate(),
+                "num_frames": wf.getnframes(),
             }
         return info
 
@@ -88,6 +95,7 @@ class AudioRecording:
 
         def close(self):
             pass
+
 
 if __name__ == "__main__":
     audio_recorder = AudioRecording("test_recording.wav", is_test_environment=True)

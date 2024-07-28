@@ -1,30 +1,44 @@
 import os
-from typing import Dict, Any
+import logging
+import traceback
+from pydantic import BaseModel, Field
+from typing import Type, Optional
+from langchain_core.callbacks import (
+    AsyncCallbackManagerForToolRun,
+)
 from .io_tool import IOTool
 from .utils import make_file_path
 from instrumentation import instrument
 
-class WriteFileTool(IOTool):
-    name = "write_file"
-    description = "Write content to the file of given name"
-    input_schema = {
-        "type": "object",
-        "properties": {
-            "fname": {"type": "string", "description": "Name of the file to edit."},
-            "content": {
-                "type": "string",
-                "description": "New contents of the file.",
-            },
-        },
-        "required": ["fname", "content"],
-    }
 
-    @instrument("handle_tool_call", attributes={ "tool": "WriteFileTool" })
-    def handle_tool_call(self, input: Dict[str, Any]) -> str | None:
-        name = input["fname"]
-        content = input["content"]
-        file_path = make_file_path(name)
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, "w") as file:
-            file.write(content)
-        self.track_modified_file(file_path)
+class WriteFileToolInput(BaseModel):
+    fname: str = Field(description="Name of the file to edit.")
+    content: str = Field(description="New contents of the file.")
+
+
+class WriteFileTool(IOTool):
+    """Tool to overwrite a file of given name with passed-in content"""
+
+    name: str = "write_file"
+    description: str = "Write content to the file of given name"
+    args_schema: Type[BaseModel] = WriteFileToolInput
+
+    @instrument("Tool._run", ["fname", "content"], attributes={"tool": "WriteFileTool"})
+    def _run(
+        self,
+        fname: str,
+        content: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> None:
+        file_path = make_file_path(fname)
+        try:
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, "w") as file:
+                file.write(content)
+            self.notify_file_modified(fname)
+            return None
+        except Exception:
+            logging.error("Failed to write file: %s", file_path)
+            traceback.print_exc()
+            # Re-raise the exception
+            raise

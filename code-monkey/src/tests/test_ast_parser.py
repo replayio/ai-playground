@@ -2,24 +2,28 @@ import unittest
 import sys
 import os
 import shutil
-sys.path.append('..')
+
+sys.path.append("..")
 from deps.ast_parser import ASTParser
+
 
 class TestASTParser(unittest.TestCase):
     def setUp(self):
         self.parser = ASTParser()
-        self.mock_files_dir = 'mock_files'
-        self.test_file1 = os.path.join(self.mock_files_dir, 'test_file1.py')
-        self.test_file2 = os.path.join(self.mock_files_dir, 'test_file2.py')
+        self.mock_files_dir = "mock_files"
+        self.test_file1 = os.path.join(self.mock_files_dir, "test_file1.py")
+        self.test_file2 = os.path.join(self.mock_files_dir, "test_file2.py")
 
         # Ensure the mock_files directory exists
         os.makedirs(self.mock_files_dir, exist_ok=True)
 
         # Generate mock test files
-        with open(self.test_file1, 'w') as f:
-            f.write("import os\nfrom test_file2 import sample_function\n\ndef main():\n    pass")
+        with open(self.test_file1, "w") as f:
+            f.write(
+                "import os\nfrom test_file2 import sample_function\n\ndef main():\n    pass"
+            )
 
-        with open(self.test_file2, 'w') as f:
+        with open(self.test_file2, "w") as f:
             f.write("def sample_function():\n    pass")
 
         # Pre-populate the cache with ASTs for the test files
@@ -42,7 +46,7 @@ class TestASTParser(unittest.TestCase):
         imports = self.parser.get_imports(self.test_file1)
         self.assertIsInstance(imports, list)
         # Test that the list of imports is correct
-        self.assertEqual(set(imports), {'os', 'test_file2.sample_function'})
+        self.assertEqual(set(imports), {"os", "test_file2.sample_function"})
 
     def test_get_exports(self):
         # Test that get_exports returns a list of exports for a given file path
@@ -58,5 +62,6 @@ class TestASTParser(unittest.TestCase):
         # Test that the summary is correct for each file
         # This is a placeholder; actual implementation will depend on the file structure and contents
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

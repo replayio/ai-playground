@@ -1,5 +1,6 @@
 import os
 import argparse
+import asyncio
 from rich import print
 from rich.console import Console
 from simple_term_menu import TerminalMenu
@@ -10,28 +11,29 @@ from util.logs import setup_logging
 
 console = Console()
 
+
 @instrument("main")
-def main(debug: bool = False) -> None:
+async def main(debug: bool = False) -> None:
     setup_logging(debug)
     print("[bold green]Welcome to the AI Agent Selector![/bold green]")
-    
+
     agent_choices = [
         ("Coder", Coder),
         ("CodeAnalyst", CodeAnalyst),
-        ("Manager", Manager)
+        ("Manager", Manager),
     ]
-    
+
     menu_items = [f"{i+1}. {name}" for i, (name, _) in enumerate(agent_choices)]
     terminal_menu = TerminalMenu(menu_items, title="Choose an agent to run:")
     menu_entry_index = terminal_menu.show()
-    
+
     if menu_entry_index is None:
         print("[bold red]No selection made. Exiting...[/bold red]")
         return
-    
+
     agent_name, agent_class = agent_choices[menu_entry_index]
     console.print(f"[bold blue]Running {agent_name} agent...[/bold blue]")
-    
+
     agent = agent_class(os.getenv("AI_MSN"))
     agent.initialize()
 
@@ -39,8 +41,9 @@ def main(debug: bool = False) -> None:
     with open(os.path.join(get_src_dir(), ".prompt.md"), "r") as prompt_file:
         prompt = prompt_file.read()
 
-    agent.run_prompt(prompt)
+    await agent.run_prompt(prompt)
     console.print("[bold green]DONE[/bold green]")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run main with optional debug logging")
@@ -51,7 +54,8 @@ if __name__ == "__main__":
 
     initialize_tracer(
         {
-            "agent": "Main",
+            "agent": "Coder",
         }
     )
-    main(debug=args.debug)
+    asyncio.run(main(debug=args.debug))
+    os._exit(0)

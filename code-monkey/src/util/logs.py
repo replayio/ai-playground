@@ -6,11 +6,15 @@ def get_logger(name):
     logger = logging.getLogger(f"codemonkey:{name}")
     return logger
 
+
+MAX_LENGTH = 200
+
+
 class TruncatingFormatter(colorlog.ColoredFormatter):
     def format(self, record):
         message = super().format(record)
-        if len(message) > 100:
-            return message[:97] + "...\033[0m"
+        if len(message) > MAX_LENGTH:
+            return message[: MAX_LENGTH - 3] + "...\033[0m"
         return message
 
 
@@ -20,7 +24,7 @@ def setup_logging(debug: bool):
         handler = colorlog.StreamHandler()
         handler.setFormatter(
             TruncatingFormatter(
-                "%(log_color)s%(levelname)-8s %(message)s%(reset)s",
+                "%(log_color)s%(levelname)-8s %(name)s %(message)s%(reset)s",
                 log_colors={
                     "DEBUG": "light_black",
                     "INFO": "green",

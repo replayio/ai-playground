@@ -2,6 +2,7 @@ from audio_recording import AudioRecording
 from audio_transcriber import AudioTranscriber
 import os
 
+
 class AudioInput:
     default_file_name = "temp_audio.wav"
 
@@ -25,5 +26,7 @@ class AudioInput:
     def _cleanup(self):
         if self.recording and os.path.exists(self.default_file_name):
             os.remove(self.default_file_name)
-            print(f"[AudioInput] Cleaned up temporary audio file: {self.default_file_name}")
+            print(
+                f"[AudioInput] Cleaned up temporary audio file: {self.default_file_name}"
+            )
         self.recording = None

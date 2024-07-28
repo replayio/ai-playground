@@ -1,11 +1,13 @@
 import ast
-from typing import Any, Dict, List
+from typing import Dict, List
+
 
 class ModuleSummary:
     functions: List[str]
     classes: List[str]
     imports: List[str]
     exports: List[str]
+
 
 class ASTParser:
     cache: Dict[str, ast.AST]

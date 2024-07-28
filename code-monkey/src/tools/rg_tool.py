@@ -1,30 +1,33 @@
 import subprocess
 import logging
 import os
-from typing import Dict, Any
-from .tool import Tool
+from typing import Type, Optional
+from pydantic import BaseModel, Field
+from langchain_core.tools import BaseTool
+from langchain_core.callbacks import (
+    AsyncCallbackManagerForToolRun,
+)
 from constants import get_artifacts_dir
 from instrumentation import instrument
 
-class RgTool(Tool):
-    name = "rg"
-    description = (
+
+class RgToolInput(BaseModel):
+    pattern: str = Field(description="The pattern to search for.")
+
+
+class RgTool(BaseTool):
+    """Search for a pattern in files within the artifacts folder using ripgrep"""
+
+    name: str = "rg"
+    description: str = (
         "Search for a pattern in files within the artifacts folder using ripgrep"
     )
-    input_schema = {
-        "type": "object",
-        "properties": {
-            "pattern": {
-                "type": "string",
-                "description": "The pattern to search for.",
-            },
-        },
-        "required": ["pattern"],
-    }
+    args_schema: Type[BaseModel] = RgToolInput
 
-    @instrument("handle_tool_call", attributes={ "tool": "RgTool" })
-    def handle_tool_call(self, input: Dict[str, Any]) -> str:
-        pattern = input["pattern"]
+    @instrument("Tool._run", ["pattern"], attributes={"tool": "RgTool"})
+    def _run(
+        self, pattern: str, run_manager: Optional[AsyncCallbackManagerForToolRun] = None
+    ) -> str:
         logging.debug(f"get_artifacts_dir(): {get_artifacts_dir()}")
 
         return self._search_with_rg(pattern)

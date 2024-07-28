@@ -1,78 +1,153 @@
 import os
+from typing import Set
+from langgraph.prebuilt import create_react_agent
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.language_models.chat_models import BaseChatModel
+
 from tools.utils import (
     ask_user,
     show_diff,
 )
-from constants import get_src_dir, get_artifacts_dir
-from models import Model, get_model_service
+from constants import get_root_dir, get_artifacts_dir
+from models import MSN
 from .base_agent import BaseAgent
 from instrumentation import current_span, instrument
+from langgraph.checkpoint.aiosqlite import AsyncSqliteSaver
+
 
 class Agent(BaseAgent):
-    model: Model
+    model: BaseChatModel
 
-    def __init__(self, msn: str | None):
-        # TODO(toshok) these two steps should be collapsed and hidden back in the
-        # models/ directory (and replaced with something like this here:
-        #   self.model = construct_model(msn, self)
-        Service = get_model_service(msn)
-        self.model = Service(self, msn)
+    config = {
+        "configurable": {"thread_id": "abc123"},
+    }
+
+    @instrument("Agent.__init__", ["msn_str"])
+    def __init__(self, msn_str: str | None):
+        msn = MSN.from_string(msn_str)
+
+        # a checkpointer + the thread_id below gives the model a way to save its
+        # state so we don't have to accumulate the messages ourselves.
+        memory = AsyncSqliteSaver.from_conn_string(":memory:")
+        self.model = create_react_agent(
+            msn.construct_model(),
+            self.tools,
+            checkpointer=memory,
+        )
+        self.initialize()
 
     # Custom Agent initialization goes here, when necessary.
     def initialize(self):
         pass
 
-    def run_prompt(self, prompt: str):
+    @instrument("Agent.run_prompt", ["prompt"])
+    async def run_prompt(self, prompt: str):
         import logging
+
         logger = logging.getLogger(__name__)
         logger.debug(f"Running prompt: {prompt}")
-        result = self.model.run_prompt(prompt)
-        logger.debug(f"Prompt result: {result}")
-        return result
+
+        system = SystemMessage(content=self.get_system_prompt())
+        msg = HumanMessage(content=self.prepare_prompt(prompt))
+
+        modified_files: Set[str] = set()
+
+        async for event in self.model.astream_events(
+            {
+                "messages": [system, msg],
+            },
+            self.config,
+            version="v2",
+        ):
+            kind = event["event"]
+            if kind == "on_chat_model_start":
+                # for msg in event["data"]["input"]["messages"][0]:
+                #     print("----")
+                #     print(msg.content)
+                continue
+
+            if kind == "on_chat_model_stream":
+                # NB(toshok) we can stream text as it comes in by doing it here,
+                # but I'm doing the entire thing in one go in the
+                # on_chat_model_end event just below.
+                continue
+
+            if kind == "on_tool_start":
+                logger.debug("----")
+                tool_name = event["name"]
+                tool_input = event["data"]["input"]
+                logger.debug("tool start:")
+                logger.debug(f"      name: {tool_name}")
+                logger.debug(f"     input: {repr(tool_input)}")
+                continue
+
+            if kind == "on_tool_end":
+                logger.debug("----")
+                tool_name = event["name"]
+                tool_output = event["data"]["output"].content[:20]
+                logger.debug("tool end:")
+                logger.debug(f"    name: {tool_name}")
+                logger.debug(f"  output: {repr(tool_output)}")
+                continue
+
+            if kind == "on_chat_model_end":
+                logger.debug("----")
+                # anthropic seems give us content as a list?
+                if isinstance(event["data"]["output"].content, list):
+                    print(event["data"]["output"].content[0]["text"])
+                else:
+                    print(event["data"]["output"].content)
+                # TODO(toshok) still need to accumulate tokens
+                continue
+
+            if kind == "on_custom_event":
+                # TODO(toshok) a better dispatch mechanism would be nice, but
+                # there's only one event type currently
+                if event["name"] == "file_modified":
+                    modified_files.add(event["data"])
+                continue
+
+        self.handle_completion(
+            modified_files,
+        )
+
+        # TODO(toshok) we aren't returning a result here, and likely should...
 
     @instrument("Agent.handle_completion")
-    def handle_completion(self, had_any_text: bool, modified_files: set) -> None:
-        current_span().set_attributes({
-            "had_any_text": had_any_text,
-            "num_modified_files": len(modified_files),
-            "modified_files": str(modified_files)
-        })
-
-        if not had_any_text:
-            print("Done.")
+    def handle_completion(self, modified_files: set) -> None:
+        current_span().set_attributes(
+            {
+                "num_modified_files": len(modified_files),
+                "modified_files": str(modified_files),
+            }
+        )
 
         if modified_files:
-            print(f"Modified files: {', '.join(modified_files)}")
             for file in modified_files:
-                self._handle_modified_file(file)
+                self.handle_modified_file(file)
         return True
 
-    @instrument("Agent._handle_modified_file")
-    def _handle_modified_file(self, file: str) -> None:
-        span = current_span()
-
-        span.set_attribute("file", file)
-
-        original_file = os.path.join(get_src_dir(), file)
+    @instrument("Agent.handle_modified_file", ["file"])
+    def handle_modified_file(self, file: str) -> None:
+        original_file = os.path.join(get_root_dir(), file)
         modified_file = os.path.join(get_artifacts_dir(), file)
         show_diff(original_file, modified_file)
-        apply_changes = ask_user(
+        response = ask_user(
             f"Do you want to apply the changes to {file} (diff shown in VSCode)? (Y/n): "
         ).lower()
-        if apply_changes == "y" or apply_changes == "":
-            span.set_attribute("apply_changes", True)
-            self._apply_changes(original_file, modified_file)
+
+        apply_changes = response == "y" or response == ""
+
+        current_span().set_attribute("apply_changes", apply_changes)
+
+        if apply_changes:
+            self.apply_changes(original_file, modified_file)
             print(f"✅ Changes applied to {file}")
         else:
-            span.set_attribute("apply_changes", False)
             print(f"❌ Changes not applied to {file}")
 
-    @instrument("Agent._apply_changes")
-    def _apply_changes(self, original_file: str, modified_file: str) -> None:
-        current_span().set_attributes({
-            "original_file": original_file,
-            "modified_file": modified_file,
-        })
+    @instrument("Agent.apply_changes", ["original_file", "modified_file"])
+    def apply_changes(self, original_file: str, modified_file: str) -> None:
         # TODO(toshok) we probably want the before/after size?  or something about size of the diff
         with open(modified_file, "r") as modified, open(original_file, "w") as original:
             original.write(modified.read())

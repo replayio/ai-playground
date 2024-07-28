@@ -1,29 +1,45 @@
 import json
-from typing import Dict, Any
+from pydantic import BaseModel, Field
+from typing import Type, List, Optional, Any
+from langchain_core.callbacks import (
+    AsyncCallbackManagerForToolRun,
+)
 from .ca_tool import CATool
-from deps.deps_utils import resolve_file_path, resolve_module_path, get_module_name
+from deps import resolve_file_path, resolve_module_path, get_module_name
+from instrumentation import instrument
+
+
+class CAImportsToolInput(BaseModel):
+    files: List[str] = Field(None, description="List of relative file paths to analyze")
+    modules: List[str] = Field(None, description="List of modules to analyze")
+
+    # not sure how to encode required rules at all (I think everything defaults to required), and certainly
+    # don't know how to encode this one:
+    #
+    # "anyOf": [{"required": ["files"]}, {"required": ["modules"]}]
+
 
 class CAExportsTool(CATool):
+    """Analyze the exports in Python files"""
+
     name = "ca_analyze_exports"
     description = "Analyze the exports in Python files"
-    input_schema = {
-        "type": "object",
-        "properties": {
-            "files": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "List of relative file paths to analyze",
-            },
-        },
-        "anyOf": [{"required": ["files"]}, {"required": ["modules"]}],
-    }
+    args_schema: Type[BaseModel] = CAImportsToolInput
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
 
-    def handle_tool_call(self, input: Dict[str, Any]) -> str:
-        files = input.get("files", [])
-        modules = input.get("modules", [])
+    @instrument("Tool._run", ["files", "modules"], attributes={"tool": "CAExportsTool"})
+    def _run(
+        self,
+        files: List[str] | None,
+        modules: List[str] | None,
+        run_manager: Optional[AsyncCallbackManagerForToolRun],
+    ) -> str:
+        if files is None:
+            files = []
+        if modules is None:
+            modules = []
 
         all_files = [resolve_file_path(f) for f in files] + [
             resolve_module_path(m) for m in modules

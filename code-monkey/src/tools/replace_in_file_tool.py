@@ -1,33 +1,39 @@
-from typing import Dict, Any
+from pydantic import BaseModel, Field
+from typing import Type, Optional
+from langchain_core.callbacks import (
+    AsyncCallbackManagerForToolRun,
+)
 from .io_tool import IOTool
 from .utils import make_file_path
 from instrumentation import instrument
 
-class ReplaceInFileTool(IOTool):
-    name = "replace_in_file"
-    description = "Replace a specific string in a file with another string"
-    input_schema = {
-        "type": "object",
-        "properties": {
-            "fname": {"type": "string", "description": "Name of the file to edit."},
-            "to_replace": {
-                "type": "string",
-                "description": "The string to be replaced.",
-            },
-            "replacement": {
-                "type": "string",
-                "description": "The string to replace with.",
-            },
-        },
-        "required": ["fname", "to_replace", "replacement"],
-    }
 
-    @instrument("handle_tool_call", attributes={ "tool": "ReplaceInFileTool" })
-    def handle_tool_call(self, input: Dict[str, Any]) -> Dict[str, Any] | None:
-        name = input["fname"]
-        to_replace = input["to_replace"]
-        replacement = input["replacement"]
-        file_path = make_file_path(name)
+class ReplaceInFileToolInput(BaseModel):
+    fname: str = Field(description="Name of the file to edit.")
+    to_replace: str = Field(description="The string to be replaced.")
+    replacement: str = Field(description="The string to replace with.")
+
+
+class ReplaceInFileTool(IOTool):
+    """Replace a specific string in a file with another string"""
+
+    name: str = "replace_in_file"
+    description: str = "Replace a specific string in a file with another string"
+    args_schema: Type[BaseModel] = ReplaceInFileToolInput
+
+    @instrument(
+        "Tool._run",
+        ["fname", "to_replace", "replacement"],
+        attributes={"tool": "ReplaceInFileTool"},
+    )
+    def _run(
+        self,
+        fname: str,
+        to_replace: str,
+        replacement: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> None:
+        file_path = make_file_path(fname)
         with open(file_path, "r") as file:
             content = file.read()
 
@@ -42,4 +48,4 @@ class ReplaceInFileTool(IOTool):
         with open(file_path, "w") as file:
             file.write(new_content)
 
-        self.track_modified_file(file_path)
+        self.notify_file_modified(fname)

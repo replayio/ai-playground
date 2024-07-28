@@ -1,27 +1,28 @@
 import os
 import argparse
-from tools.tool import ToolSpec
-from tools.invoke_agent_tool import InvokeAgentTool
-from tools.read_file_tool import ReadFileTool
-from tools.write_file_tool import WriteFileTool
-from tools.create_file_tool import CreateFileTool
-from tools.rename_file_tool import RenameFileTool
-from tools.delete_file_tool import DeleteFileTool
-from tools.replace_in_file_tool import ReplaceInFileTool
-from tools.ask_user_tool import AskUserTool
-from tools.run_test_tool import RunTestTool
-from tools.exec_tool import ExecTool
-from tools.ca.ca_imports_tool import CAImportsTool
-from tools.ca.ca_exports_tool import CAExportsTool
-from tools.ca.ca_tool import CATool
-from tools.ca.ca_ast_analyzer_tool import CAASTAnalyzerTool
-from tools.ca.ca_dependency_graph_tool import CADependencyGraphTool
 from typing import List, Type
+from tools import (
+    AskUserTool,
+    CreateFileTool,
+    DeleteFileTool,
+    ExecTool,
+    InvokeAgentTool,
+    ReadFileTool,
+    RenameFileTool,
+    ReplaceInFileTool,
+    RunTestTool,
+    WriteFileTool,
+    CAImportsTool,
+    CAExportsTool,
+    CAASTAnalyzerTool,
+    CADependencyGraphTool,
+)
 from code_context import CodeContext
 from .agent import Agent
-from constants import load_environment, get_src_dir
+from constants import load_environment, get_root_dir
 from instrumentation import initialize_tracer, instrument
 from util.logs import setup_logging
+
 
 class Manager(Agent):
     SYSTEM_PROMPT = """
@@ -31,9 +32,9 @@ class Manager(Agent):
 4. If you have low confidence in a response or don't understand an instruction, explain why and use the ask_user tool to gather clarifications.
 5. For simple, straightforward coding tasks, consider delegating directly to the Coder agent to improve efficiency.
 """
-    tool_specs = [
-        ToolSpec(InvokeAgentTool, ["EngineeringPlanner", "Engineer", "Coder"]),
-        ToolSpec(AskUserTool, []),
+    tools = [
+        InvokeAgentTool(["EngineeringPlanner", "Engineer", "Coder"]),
+        AskUserTool(),
     ]
 
 
@@ -47,9 +48,9 @@ class EngineeringPlanner(Agent):
 6. You are enthusiastic about working with the user on making sure that all requirements are understood and implemented.
 7. When breaking down tasks, consider grouping related changes to minimize redundant work by the Coder.
 """
-    tool_specs = [
-        ToolSpec(AskUserTool, []),
-        ToolSpec(InvokeAgentTool, ["CodeAnalyst"]),
+    tools = [
+        AskUserTool(),
+        InvokeAgentTool(["CodeAnalyst"]),
     ]
 
 
@@ -64,8 +65,8 @@ class Engineer(Agent):
 7. TODO: Implement a mechanism to subdivide engineering tasks into smaller tasks upon discovery.
 8. Provide clear and detailed instructions to the Coder agent to minimize the need for clarifications.
 """
-    tool_specs = [
-        ToolSpec(InvokeAgentTool, ["CodeAnalyst", "Coder", "Debugger"]),
+    tools = [
+        InvokeAgentTool(["CodeAnalyst", "Coder", "Debugger"]),
     ]
 
 
@@ -77,13 +78,12 @@ class CodeAnalyst(Agent):
 4. Provide detailed context and relationships between code elements.
 5. Present your findings in a structured format that can be easily parsed and utilized by other agents.
 """
-    tool_specs = [
-        ToolSpec(ReadFileTool, []),
-        ToolSpec(CAImportsTool, []),
-        ToolSpec(CAExportsTool, []),
-        ToolSpec(CATool, []),
-        ToolSpec(CAASTAnalyzerTool, []),
-        ToolSpec(CADependencyGraphTool, []),
+    tools = [
+        ReadFileTool(),
+        CAImportsTool(),
+        CAExportsTool(),
+        CAASTAnalyzerTool(),
+        CADependencyGraphTool(),
     ]
 
 
@@ -96,14 +96,14 @@ class Coder(Agent):
 4. Don't retry failed commands.
 5. For simpler tasks, you have the autonomy to make decisions and implement changes without consulting other agents.
 """
-    tool_specs = [
+    tools = [
         # TODO: These tool specs are about 1k tokens.
-        ToolSpec(ReadFileTool, []),
-        ToolSpec(WriteFileTool, []),
-        ToolSpec(CreateFileTool, []),
-        ToolSpec(RenameFileTool, []),
-        ToolSpec(DeleteFileTool, []),
-        ToolSpec(ReplaceInFileTool, []),
+        ReadFileTool(),
+        WriteFileTool(),
+        CreateFileTool(),
+        RenameFileTool(),
+        DeleteFileTool(),
+        ReplaceInFileTool(),
     ]
 
     def initialize(self):
@@ -132,11 +132,26 @@ class Debugger(Agent):
 5. Suggest potential fixes or next steps based on test results or command outputs.
 6. Provide feedback to the Coder agent on common issues or patterns observed during testing to help improve code quality.
 """
-    tool_specs = [
-        ToolSpec(RunTestTool, []),
-        ToolSpec(ExecTool, []),
-        ToolSpec(InvokeAgentTool, ["Coder"]),
+    tools = [
+        RunTestTool(),
+        ExecTool(),
+        #        InvokeAgentTool(["Coder"]),
     ]
+
+    def initialize(self):
+        code_context = CodeContext()
+        code_context.copy_src()
+        self.set_context(code_context)
+
+    def set_context(self, context: CodeContext):
+        self.context = context
+
+    def prepare_prompt(self, prompt: str) -> str:
+        # TODO: known_files cost several hundred tokens for a small project.
+        return f"""
+These are all files: {self.context.known_files}.
+Query: {prompt.strip()}
+    """.strip()
 
 
 agents: List[Type[Agent]] = [Manager, EngineeringPlanner, CodeAnalyst, Coder, Debugger]
@@ -144,7 +159,7 @@ agents_by_name = {agent.__name__: agent for agent in agents}
 
 
 @instrument("run_agent_impl")
-def _run_agent_impl(agent_class: Type[Agent]):
+async def _run_agent_impl(agent_class: Type[Agent]):
     parser = argparse.ArgumentParser(
         description="Run main_planner with optional debug logging"
     )
@@ -159,16 +174,17 @@ def _run_agent_impl(agent_class: Type[Agent]):
     agent.initialize()
 
     # Read prompt from .prompt.md file
-    with open(os.path.join(get_src_dir(), ".prompt.md"), "r") as prompt_file:
+    with open(os.path.join(get_root_dir(), ".prompt.md"), "r") as prompt_file:
         prompt = prompt_file.read()
 
-    agent.run_prompt(prompt)
+    await agent.run_prompt(prompt)
     print("DONE")
 
-def run_agent_main(agent_class: Type[Agent]):
+
+async def run_agent_main(agent_class: Type[Agent]):
     initialize_tracer(
         {
             "agent": agent_class.__name__,
         }
     )
-    _run_agent_impl(agent_class)
+    await _run_agent_impl(agent_class)
