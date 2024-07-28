@@ -20,5 +20,12 @@ def load_environment():
     load_dotenv(".env.secret")
 
 
+DEFAULT_MSN = "anthropic/claude-3-5-sonnet-20240620/anthropic-beta=max-tokens-3-5-sonnet-2024-07-15"
+
+
+def get_agent_msn():
+    return os.getenv("AI_MSN", DEFAULT_MSN)
+
+
 # Claude rate limit
 CLAUDE_RATE_LIMIT = 40000  # tokens per minute

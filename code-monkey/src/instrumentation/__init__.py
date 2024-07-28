@@ -38,7 +38,7 @@ def current_span() -> trace.Span:
 
 
 # Creates a tracer from the global tracer provider
-def initialize_tracer(attributes: Attributes = None):
+def initialize_tracer(attributes: Attributes | None = None):
     service_resource = Resource.create(
         {
             SERVICE_NAME: "ai_playground",
@@ -50,19 +50,18 @@ def initialize_tracer(attributes: Attributes = None):
     )
 
     exporter = None
-    if (
-        os.getenv("HONEYCOMB_API_KEY") is not None
-        and os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT") is not None
-    ):
+    api_key = os.getenv("HONEYCOMB_API_KEY")
+    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    if api_key is not None and otlp_endpoint is not None:
         # TODO(toshok): this is for grpc, which I'd love to use, but doesn't seem to work?
         # exporter = OTLPSpanExporter(
         #     endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
         #     headers=(("x-honeycomb-team", os.getenv("HONEYCOMB_API_KEY"))),
         # )
         exporter = OTLPSpanExporter(
-            endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+            endpoint=otlp_endpoint,
             headers={
-                "x-honeycomb-team": os.getenv("HONEYCOMB_API_KEY"),
+                "x-honeycomb-team": api_key,
             },
         )
     elif os.getenv("OTEL_CONSOLE_EXPORTER"):
@@ -81,11 +80,13 @@ def initialize_tracer(attributes: Attributes = None):
     set_tracer(trace.get_tracer("replayio.ai-playground"))
 
 
-def instrument(name: str, params: List[str] = None, attributes: Attributes = None):
+def instrument(
+    name: str, params: List[str] | None = None, attributes: Attributes | None = None
+):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            span_attributes = attributes.copy() if attributes else {}
+            span_attributes = {}
 
             if params:
                 sig = inspect.signature(func)
@@ -109,6 +110,9 @@ def instrument(name: str, params: List[str] = None, attributes: Attributes = Non
                     for k, v in bound_args.arguments.get("kwargs", {}).items():
                         if include_all_kwargs or k in kwargs_to_include:
                             span_attributes[f"kwarg.{k}"] = v
+
+            if attributes:
+                span_attributes.update(attributes)
 
             with tracer().start_as_current_span(name, attributes=span_attributes):
                 return func(*args, **kwargs)
