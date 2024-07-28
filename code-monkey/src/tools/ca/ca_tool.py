@@ -1,12 +1,12 @@
-from typing import Any, Optional
+from typing import Any
 from langchain_core.tools import BaseTool
 from deps import ASTParser
 
 
 class CATool(BaseTool):
-    parser: Optional[ASTParser] = None
+    parser: ASTParser
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: Any):
+        if "parser" not in kwargs:
+            kwargs["parser"] = ASTParser()
         super().__init__(**kwargs)
-        if self.parser is None:
-            self.parser = ASTParser()

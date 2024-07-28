@@ -2,7 +2,7 @@ import time
 from math import ceil
 from collections import deque, Counter
 from constants import CLAUDE_RATE_LIMIT
-from anthropic.types import ContentBlock
+from anthropic.types import ContentBlock, ToolUseBlock
 from typing import List
 from instrumentation import tracer
 
@@ -44,7 +44,7 @@ class TokenStats:
         type_label = "+".join(
             sorted(
                 [
-                    f"{m.type}.{m.name}" if hasattr(m, "name") and m.name else m.type
+                    f"{m.type}.{m.name}" if isinstance(m, ToolUseBlock) else m.type
                     for m in message_contents
                 ]
             )

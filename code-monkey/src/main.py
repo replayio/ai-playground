@@ -31,6 +31,10 @@ async def main(debug: bool = False) -> None:
         print("[bold red]No selection made. Exiting...[/bold red]")
         return
 
+    if isinstance(menu_entry_index, tuple):
+        print("[bold red]multi-selection not supported. Exiting...[/bold red]")
+        return
+
     agent_name, agent_class = agent_choices[menu_entry_index]
     console.print(f"[bold blue]Running {agent_name} agent...[/bold blue]")
 
