@@ -11,17 +11,24 @@ from instrumentation import instrument
 
 
 class GetDependenciesToolInput(BaseModel):
-    module_names: List[str] = Field(description="List of module names to get dependencies for")
+    module_names: List[str] = Field(
+        description="List of module names to get dependencies for"
+    )
 
 
 class GetDependenciesTool(BaseTool):
     """Get the dependency graph for one or more Python modules"""
+
     name: str = "get_dependencies"
     description: str = "Get the dependency graph for one or more Python modules"
     args_schema: Type[BaseModel] = GetDependenciesToolInput
 
-    @instrument("Tool._run", attributes={ "tool": "GetDependenciesTool" })
-    def _run(self, module_names: List[str], run_manager: Optional[AsyncCallbackManagerForToolRun])-> str:
+    @instrument("Tool._run", attributes={"tool": "GetDependenciesTool"})
+    def _run(
+        self,
+        module_names: List[str],
+        run_manager: Optional[AsyncCallbackManagerForToolRun],
+    ) -> str:
         module_names = input["module_names"]
         module_paths = [
             os.path.join(get_artifacts_dir, f"{module}.py") for module in module_names()

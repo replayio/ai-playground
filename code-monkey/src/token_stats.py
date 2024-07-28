@@ -10,8 +10,10 @@ TOP_N = 5
 
 CHECKPOINT_TOKENS = 30000
 
+
 class TokenStats:
     checkpoint = 1
+
     def __init__(self):
         self.total_input_tokens = 0
         self.total_output_tokens = 0
@@ -39,10 +41,14 @@ class TokenStats:
             self.token_history.popleft()
 
         # Update histograms
-        type_label = "+".join(sorted(
-            [f"{m.type}.{m.name}" if hasattr(m, 'name') and m.name else m.type 
-             for m in message_contents]
-        ))
+        type_label = "+".join(
+            sorted(
+                [
+                    f"{m.type}.{m.name}" if hasattr(m, "name") and m.name else m.type
+                    for m in message_contents
+                ]
+            )
+        )
         self.message_type_histogram[type_label] += input_tokens + output_tokens
 
         if self.get_total_tokens() > self.checkpoint * CHECKPOINT_TOKENS:

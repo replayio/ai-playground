@@ -1,5 +1,6 @@
 import sys
 import os
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from constants import load_environment
@@ -8,6 +9,7 @@ from audio_recording import AudioRecording
 from audio_transcriber import AudioTranscriber
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
+
 
 def main():
     print("Welcome to the Audio Playground!")
@@ -35,6 +37,7 @@ def main():
     print(transcript)
 
     print("\nThank you for using Audio Playground!")
+
 
 if __name__ == "__main__":
     main()

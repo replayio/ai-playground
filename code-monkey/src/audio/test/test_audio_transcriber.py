@@ -11,6 +11,7 @@ from unittest.mock import patch, MagicMock
 from audio_recording import AudioRecording
 from audio_transcriber import AudioTranscriber
 
+
 class TestAudioTranscriber(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
@@ -21,32 +22,38 @@ class TestAudioTranscriber(unittest.TestCase):
         self.mock_credentials = MagicMock()
 
         # Clear any existing environment variables
-        if 'GOOGLE_APPLICATION_CREDENTIALS_JSON' in os.environ:
-            del os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON']
-        if 'GOOGLE_APPLICATION_CREDENTIALS_PATH' in os.environ:
-            del os.environ['GOOGLE_APPLICATION_CREDENTIALS_PATH']
+        if "GOOGLE_APPLICATION_CREDENTIALS_JSON" in os.environ:
+            del os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"]
+        if "GOOGLE_APPLICATION_CREDENTIALS_PATH" in os.environ:
+            del os.environ["GOOGLE_APPLICATION_CREDENTIALS_PATH"]
 
     def tearDown(self):
         if os.path.exists(self.test_file):
             os.remove(self.test_file)
         os.rmdir(self.temp_dir)
         # Clean up environment variables
-        if 'GOOGLE_APPLICATION_CREDENTIALS_JSON' in os.environ:
-            del os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON']
-        if 'GOOGLE_APPLICATION_CREDENTIALS_PATH' in os.environ:
-            del os.environ['GOOGLE_APPLICATION_CREDENTIALS_PATH']
+        if "GOOGLE_APPLICATION_CREDENTIALS_JSON" in os.environ:
+            del os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"]
+        if "GOOGLE_APPLICATION_CREDENTIALS_PATH" in os.environ:
+            del os.environ["GOOGLE_APPLICATION_CREDENTIALS_PATH"]
 
     def test_audio_recording(self):
         recording = AudioRecording(self.test_file, is_test_environment=True)
         recording.start_recording()
         recording.stop_recording()
 
-        self.assertTrue(os.path.exists(self.test_file), "Recording file was not created")
-        self.assertGreater(os.path.getsize(self.test_file), 0, "Recording file is empty")
+        self.assertTrue(
+            os.path.exists(self.test_file), "Recording file was not created"
+        )
+        self.assertGreater(
+            os.path.getsize(self.test_file), 0, "Recording file is empty"
+        )
 
-    @patch('speech_recognition.Recognizer.recognize_google_cloud')
-    @patch('audio_transcriber.service_account.Credentials.from_service_account_info')
-    def test_transcribe_audio(self, mock_from_service_account_info, mock_recognize_google_cloud):
+    @patch("speech_recognition.Recognizer.recognize_google_cloud")
+    @patch("audio_transcriber.service_account.Credentials.from_service_account_info")
+    def test_transcribe_audio(
+        self, mock_from_service_account_info, mock_recognize_google_cloud
+    ):
         # Mock the recognize_google_cloud method
         mock_recognize_google_cloud.return_value = "This is a test transcription."
 
@@ -56,21 +63,26 @@ class TestAudioTranscriber(unittest.TestCase):
 
         # Create a mock audio file
         mock_audio_file = MagicMock()
-        mock_audio_file.get_wav_data.return_value = b'mock audio data'
-        mock_audio_file.get_audio_info.return_value = {'frame_rate': 44100, 'sample_width': 2}
+        mock_audio_file.get_wav_data.return_value = b"mock audio data"
+        mock_audio_file.get_audio_info.return_value = {
+            "frame_rate": 44100,
+            "sample_width": 2,
+        }
 
         # Create a minimal mock credentials JSON
-        mock_credentials_json = json.dumps({
-            "type": "service_account",
-            "project_id": "test",
-            "private_key_id": "test",
-            "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC7/UoL8Iu1fTBN\n-----END PRIVATE KEY-----\n",
-            "client_email": "test@test.iam.gserviceaccount.com",
-            "client_id": "test",
-        })
+        mock_credentials_json = json.dumps(
+            {
+                "type": "service_account",
+                "project_id": "test",
+                "private_key_id": "test",
+                "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC7/UoL8Iu1fTBN\n-----END PRIVATE KEY-----\n",
+                "client_email": "test@test.iam.gserviceaccount.com",
+                "client_id": "test",
+            }
+        )
 
         # Set up the environment variable
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON'] = mock_credentials_json
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"] = mock_credentials_json
 
         # Create an instance of AudioTranscriber
         transcriber = AudioTranscriber()
@@ -82,45 +94,57 @@ class TestAudioTranscriber(unittest.TestCase):
         mock_recognize_google_cloud.assert_called_once_with(
             unittest.mock.ANY,  # AudioData object
             credentials=mock_credentials,
-            language="en-US"
+            language="en-US",
         )
-        self.assertEqual(result, "This is a test transcription.", "Transcription result does not match expected output")
+        self.assertEqual(
+            result,
+            "This is a test transcription.",
+            "Transcription result does not match expected output",
+        )
 
         # Verify that the credentials were created from the mock JSON
         mock_from_service_account_info.assert_called_once()
 
         # Clean up environment variable
-        del os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON']
+        del os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"]
 
-    @patch('audio_transcriber.service_account.Credentials.from_service_account_info')
+    @patch("audio_transcriber.service_account.Credentials.from_service_account_info")
     def test_credential_handling(self, mock_from_service_account_info):
         mock_from_service_account_info.return_value = self.mock_credentials
 
         # Test with valid credentials
         valid_credentials_json = '{"type": "service_account", "project_id": "test", "private_key_id": "test", "private_key": "-----BEGIN PRIVATE KEY-----\\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC7/UoL8Iu1fTBN\\nxnNKKtHJbNm8O4Czw5wHrZp3GsSJ5txsunnyABCDEFGHIJKLMNOPQRSTUVWXYZ01\\n23456789012345678901234567890123456789012345678901234567890123==\\n-----END PRIVATE KEY-----\\n", "client_email": "test@test.iam.gserviceaccount.com", "client_id": "test", "auth_uri": "https://accounts.google.com/o/oauth2/auth", "token_uri": "https://oauth2.googleapis.com/token", "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs", "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test%40test.iam.gserviceaccount.com"}'
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON'] = valid_credentials_json
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"] = valid_credentials_json
         transcriber = AudioTranscriber()
-        self.assertIsNotNone(transcriber.credentials, "Credentials should not be None with valid JSON")
+        self.assertIsNotNone(
+            transcriber.credentials, "Credentials should not be None with valid JSON"
+        )
         mock_from_service_account_info.assert_called_once()
 
         # Test with invalid credentials
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON'] = 'invalid_json'
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"] = "invalid_json"
         transcriber = AudioTranscriber()
-        self.assertIsNone(transcriber.credentials, "Credentials should be None with invalid JSON")
+        self.assertIsNone(
+            transcriber.credentials, "Credentials should be None with invalid JSON"
+        )
 
         # Test with missing credentials
-        if 'GOOGLE_APPLICATION_CREDENTIALS_JSON' in os.environ:
-            del os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON']
+        if "GOOGLE_APPLICATION_CREDENTIALS_JSON" in os.environ:
+            del os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"]
         transcriber = AudioTranscriber()
-        self.assertIsNone(transcriber.credentials, "Credentials should be None with missing JSON")
+        self.assertIsNone(
+            transcriber.credentials, "Credentials should be None with missing JSON"
+        )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
+
 
 class TestAudioTranscriber(unittest.TestCase):
     # ... (previous methods)
 
-    @patch('speech_recognition.Recognizer.recognize_google_cloud')
+    @patch("speech_recognition.Recognizer.recognize_google_cloud")
     def test_invalid_audio_data(self, mock_recognize_google_cloud):
         """
         Test that the AudioTranscriber correctly handles invalid audio data
@@ -129,7 +153,9 @@ class TestAudioTranscriber(unittest.TestCase):
         mock_credentials = MagicMock()
         print("DEBUG: Created mock credentials")
 
-        with patch.object(AudioTranscriber, '_load_credentials', return_value=mock_credentials):
+        with patch.object(
+            AudioTranscriber, "_load_credentials", return_value=mock_credentials
+        ):
             transcriber = AudioTranscriber()
             print(f"DEBUG: Created transcriber: {transcriber}")
 
@@ -137,8 +163,11 @@ class TestAudioTranscriber(unittest.TestCase):
             print("DEBUG: Set side_effect for mock_recognize_google_cloud")
 
             invalid_audio = MagicMock()
-            invalid_audio.load_recording.return_value = b'invalid audio data'
-            invalid_audio.get_audio_info.return_value = {'frame_rate': 44100, 'sample_width': 2}
+            invalid_audio.load_recording.return_value = b"invalid audio data"
+            invalid_audio.get_audio_info.return_value = {
+                "frame_rate": 44100,
+                "sample_width": 2,
+            }
 
             print("DEBUG: About to call get_transcript")
             with self.assertRaises(ValueError):

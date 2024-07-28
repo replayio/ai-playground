@@ -11,6 +11,7 @@ from util.logs import setup_logging
 
 console = Console()
 
+
 @instrument("main")
 async def main(debug: bool = False) -> None:
     setup_logging(debug)
@@ -19,7 +20,7 @@ async def main(debug: bool = False) -> None:
     agent_choices = [
         ("Coder", Coder),
         ("CodeAnalyst", CodeAnalyst),
-        ("Manager", Manager)
+        ("Manager", Manager),
     ]
 
     menu_items = [f"{i+1}. {name}" for i, (name, _) in enumerate(agent_choices)]
@@ -42,6 +43,7 @@ async def main(debug: bool = False) -> None:
 
     await agent.run_prompt(prompt)
     console.print("[bold green]DONE[/bold green]")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run main with optional debug logging")

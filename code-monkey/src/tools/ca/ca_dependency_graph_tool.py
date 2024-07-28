@@ -6,10 +6,9 @@ from langchain_core.callbacks import (
 )
 import networkx as nx
 from .ca_tool import CATool
-from deps import (
-    resolve_file_path, resolve_module_path, get_module_name
-)
+from deps import resolve_file_path, resolve_module_path, get_module_name
 from instrumentation import instrument
+
 
 class CADependencyGraphToolInput(BaseModel):
     files: List[str] = Field(None, description="List of relative file paths to analyze")
@@ -23,6 +22,7 @@ class CADependencyGraphToolInput(BaseModel):
 
 class CADependencyGraphTool(CATool):
     """Generate a dependency graph for Python files"""
+
     name = "ca_generate_dependency_graph"
     description = "Generate a dependency graph for Python files"
     args_schema: Type[BaseModel] = CADependencyGraphToolInput
@@ -30,8 +30,15 @@ class CADependencyGraphTool(CATool):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-    @instrument("Tool._run", ["files", "modules"], attributes={ "tool": "CADependencyGraphTool" })
-    def _run(self, files: List[str] | None, modules: List[str] | None, run_manager: Optional[AsyncCallbackManagerForToolRun])-> str:
+    @instrument(
+        "Tool._run", ["files", "modules"], attributes={"tool": "CADependencyGraphTool"}
+    )
+    def _run(
+        self,
+        files: List[str] | None,
+        modules: List[str] | None,
+        run_manager: Optional[AsyncCallbackManagerForToolRun],
+    ) -> str:
         if files is None:
             files = []
         if modules is None:

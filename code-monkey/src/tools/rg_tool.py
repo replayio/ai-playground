@@ -10,17 +10,24 @@ from langchain_core.callbacks import (
 from constants import get_artifacts_dir
 from instrumentation import instrument
 
+
 class RgToolInput(BaseModel):
     pattern: str = Field(description="The pattern to search for.")
 
+
 class RgTool(BaseTool):
     """Search for a pattern in files within the artifacts folder using ripgrep"""
+
     name: str = "rg"
-    description: str = "Search for a pattern in files within the artifacts folder using ripgrep"
+    description: str = (
+        "Search for a pattern in files within the artifacts folder using ripgrep"
+    )
     args_schema: Type[BaseModel] = RgToolInput
 
-    @instrument("Tool._run", ["pattern"], attributes={ "tool": "RgTool" })
-    def _run(self, pattern: str, run_manager: Optional[AsyncCallbackManagerForToolRun] = None) -> str:
+    @instrument("Tool._run", ["pattern"], attributes={"tool": "RgTool"})
+    def _run(
+        self, pattern: str, run_manager: Optional[AsyncCallbackManagerForToolRun] = None
+    ) -> str:
         logging.debug(f"get_artifacts_dir(): {get_artifacts_dir()}")
 
         return self._search_with_rg(pattern)

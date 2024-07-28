@@ -2,6 +2,7 @@ from typing import Any, Optional
 from langchain_core.tools import BaseTool
 from deps import ASTParser
 
+
 class CATool(BaseTool):
     parser: Optional[ASTParser] = None
 

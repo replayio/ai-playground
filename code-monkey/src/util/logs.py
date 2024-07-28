@@ -6,13 +6,15 @@ def get_logger(name):
     logger = logging.getLogger(f"codemonkey:{name}")
     return logger
 
-MAX_LENGTH=200
+
+MAX_LENGTH = 200
+
 
 class TruncatingFormatter(colorlog.ColoredFormatter):
     def format(self, record):
         message = super().format(record)
         if len(message) > MAX_LENGTH:
-            return message[:MAX_LENGTH-3] + "...\033[0m"
+            return message[: MAX_LENGTH - 3] + "...\033[0m"
         return message
 
 

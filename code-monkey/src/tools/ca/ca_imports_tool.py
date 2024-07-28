@@ -8,8 +8,11 @@ from .ca_tool import CATool
 from deps import resolve_file_path, resolve_module_path, get_module_name
 from instrumentation import instrument
 
+
 class CAImportsToolInput(BaseModel):
-    files: List[str] | None = Field(None, description="List of relative file paths to analyze")
+    files: List[str] | None = Field(
+        None, description="List of relative file paths to analyze"
+    )
     modules: List[str] | None = Field(None, description="List of modules to analyze")
 
     # not sure how to encode required rules at all (I think everything defaults to required), and certainly
@@ -17,8 +20,10 @@ class CAImportsToolInput(BaseModel):
     #
     # "anyOf": [{"required": ["files"]}, {"required": ["modules"]}]
 
+
 class CAImportsTool(CATool):
     """Analyze the imports in Python files"""
+
     name: str = "ca_analyze_imports"
     description: str = "Analyze the imports in Python files"
     args_schema: Type[BaseModel] = CAImportsToolInput
@@ -26,8 +31,13 @@ class CAImportsTool(CATool):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-    @instrument("Tool._run", ["files", "modules"], attributes={ "tool": "CAImportsTool" })
-    def _run(self, files: List[str] | None, modules: List[str] | None, run_manager: Optional[AsyncCallbackManagerForToolRun])-> str:
+    @instrument("Tool._run", ["files", "modules"], attributes={"tool": "CAImportsTool"})
+    def _run(
+        self,
+        files: List[str] | None,
+        modules: List[str] | None,
+        run_manager: Optional[AsyncCallbackManagerForToolRun],
+    ) -> str:
         if files is None:
             files = []
         if modules is None:

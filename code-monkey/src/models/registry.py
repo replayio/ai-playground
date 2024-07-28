@@ -5,7 +5,9 @@ from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
 from langchain_fireworks import ChatFireworks
 
-type ChatModelConstructor = Callable[[str, Dict[str | None, str | bool] | None], BaseChatModel]
+type ChatModelConstructor = Callable[
+    [str, Dict[str | None, str | bool] | None], BaseChatModel
+]
 
 
 def construct_anthropic(

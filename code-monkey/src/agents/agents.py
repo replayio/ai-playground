@@ -23,6 +23,7 @@ from constants import load_environment, get_root_dir
 from instrumentation import initialize_tracer, instrument
 from util.logs import setup_logging
 
+
 class Manager(Agent):
     SYSTEM_PROMPT = """
 1. You are the manager, a high-level agent capable of delegating tasks and coordinating other agents.
@@ -134,7 +135,7 @@ class Debugger(Agent):
     tools = [
         RunTestTool(),
         ExecTool(),
-#        InvokeAgentTool(["Coder"]),
+        #        InvokeAgentTool(["Coder"]),
     ]
 
     def initialize(self):
@@ -178,6 +179,7 @@ async def _run_agent_impl(agent_class: Type[Agent]):
 
     await agent.run_prompt(prompt)
     print("DONE")
+
 
 async def run_agent_main(agent_class: Type[Agent]):
     initialize_tracer(

@@ -8,6 +8,7 @@ from .ca_tool import CATool
 from deps import resolve_file_path, resolve_module_path, get_module_name
 from instrumentation import instrument
 
+
 class CAImportsToolInput(BaseModel):
     files: List[str] = Field(None, description="List of relative file paths to analyze")
     modules: List[str] = Field(None, description="List of modules to analyze")
@@ -16,6 +17,7 @@ class CAImportsToolInput(BaseModel):
     # don't know how to encode this one:
     #
     # "anyOf": [{"required": ["files"]}, {"required": ["modules"]}]
+
 
 class CAExportsTool(CATool):
     """Analyze the exports in Python files"""
@@ -27,8 +29,13 @@ class CAExportsTool(CATool):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-    @instrument("Tool._run", ["files", "modules"], attributes={ "tool": "CAExportsTool" })
-    def _run(self, files: List[str] | None, modules: List[str] | None, run_manager: Optional[AsyncCallbackManagerForToolRun])-> str:
+    @instrument("Tool._run", ["files", "modules"], attributes={"tool": "CAExportsTool"})
+    def _run(
+        self,
+        files: List[str] | None,
+        modules: List[str] | None,
+        run_manager: Optional[AsyncCallbackManagerForToolRun],
+    ) -> str:
         if files is None:
             files = []
         if modules is None:

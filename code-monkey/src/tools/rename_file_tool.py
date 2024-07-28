@@ -8,18 +8,28 @@ from .io_tool import IOTool
 from .utils import make_file_path
 from instrumentation import instrument
 
+
 class RenameFileToolInput(BaseModel):
     old_name: str = Field(description="Current name of the file.")
     new_name: str = Field(description="New name for the file.")
 
+
 class RenameFileTool(IOTool):
     """Tool to rename a file"""
+
     name: str = "rename_file"
     description: str = "Rename a file, given old and new names"
     args_schema: Type[BaseModel] = RenameFileToolInput
 
-    @instrument("Tool._run", ["old_name", "new_name"], attributes={ "tool": "RenameFileTool" })
-    def _run(self, old_name: str, new_name: str, run_manager: Optional[AsyncCallbackManagerForToolRun] = None) -> None:
+    @instrument(
+        "Tool._run", ["old_name", "new_name"], attributes={"tool": "RenameFileTool"}
+    )
+    def _run(
+        self,
+        old_name: str,
+        new_name: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> None:
         old_path = make_file_path(old_name)
         new_path = make_file_path(new_name)
 

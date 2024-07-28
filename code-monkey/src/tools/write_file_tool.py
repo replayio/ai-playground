@@ -10,18 +10,26 @@ from .io_tool import IOTool
 from .utils import make_file_path
 from instrumentation import instrument
 
+
 class WriteFileToolInput(BaseModel):
     fname: str = Field(description="Name of the file to edit.")
     content: str = Field(description="New contents of the file.")
 
+
 class WriteFileTool(IOTool):
     """Tool to overwrite a file of given name with passed-in content"""
+
     name: str = "write_file"
     description: str = "Write content to the file of given name"
     args_schema: Type[BaseModel] = WriteFileToolInput
 
-    @instrument("Tool._run", ["fname", "content"], attributes={ "tool": "WriteFileTool" })
-    def _run(self, fname: str, content: str, run_manager: Optional[AsyncCallbackManagerForToolRun] = None) -> None:
+    @instrument("Tool._run", ["fname", "content"], attributes={"tool": "WriteFileTool"})
+    def _run(
+        self,
+        fname: str,
+        content: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> None:
         file_path = make_file_path(fname)
         try:
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -30,7 +38,7 @@ class WriteFileTool(IOTool):
             self.notify_file_modified(fname)
             return None
         except Exception:
-           logging.error("Failed to write file: %s", file_path)
-           traceback.print_exc()
-           # Re-raise the exception
-           raise
+            logging.error("Failed to write file: %s", file_path)
+            traceback.print_exc()
+            # Re-raise the exception
+            raise

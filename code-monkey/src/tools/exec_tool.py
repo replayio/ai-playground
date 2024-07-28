@@ -14,17 +14,22 @@ from instrumentation import instrument
 # Set to store approved commands
 approved_commands = set()
 
+
 class ExecToolInput(BaseModel):
     command: str = Field(description="The command to execute.")
-    
+
+
 class ExecTool(BaseTool):
     """Tool to do some dangerous stuff - execute a command in the terminal"""
+
     name: str = "exec"
     description: str = "Execute a command in the terminal"
     args_schema: Type[BaseModel] = ExecToolInput
 
-    @instrument("Tool._run", ["command"], attributes={ "tool": "ExecTool" })
-    def _run(self, command: str, run_manager: Optional[AsyncCallbackManagerForToolRun])-> str:
+    @instrument("Tool._run", ["command"], attributes={"tool": "ExecTool"})
+    def _run(
+        self, command: str, run_manager: Optional[AsyncCallbackManagerForToolRun]
+    ) -> str:
         # TODO: fix this based on copy_src
         file_tree = get_all_src_files()
 

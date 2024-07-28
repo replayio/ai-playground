@@ -6,20 +6,29 @@ import anthropic
 from scipy.spatial.distance import cosine
 from chunker import Chunker
 
+
 class Embeddings(ABC):
     def read_files(self, folder):
         def is_ignored(path, ignore_patterns):
             return any(fnmatch.fnmatch(path, pattern) for pattern in ignore_patterns)
 
-        ignore_file = os.path.join(folder, '.gitignore')
+        ignore_file = os.path.join(folder, ".gitignore")
         ignore_patterns = []
         if os.path.exists(ignore_file):
-            with open(ignore_file, 'r') as f:
-                ignore_patterns = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+            with open(ignore_file, "r") as f:
+                ignore_patterns = [
+                    line.strip()
+                    for line in f
+                    if line.strip() and not line.startswith("#")
+                ]
 
         all_files = []
         for root, dirs, files in os.walk(folder):
-            dirs[:] = [d for d in dirs if not is_ignored(os.path.join(root, d), ignore_patterns)]
+            dirs[:] = [
+                d
+                for d in dirs
+                if not is_ignored(os.path.join(root, d), ignore_patterns)
+            ]
             for file in files:
                 file_path = os.path.join(root, file)
                 if not is_ignored(file_path, ignore_patterns):
@@ -30,6 +39,7 @@ class Embeddings(ABC):
     @abstractmethod
     def run_prompt(self, prompt: str):
         pass
+
 
 class VoyageEmbeddings(Embeddings):
     def __init__(self, folder):
@@ -43,7 +53,7 @@ class VoyageEmbeddings(Embeddings):
     def embed(self):
         files = self.read_files(self.folder)
         for file in files:
-            with open(file, 'r') as f:
+            with open(file, "r") as f:
                 content = f.read()
                 # Chunking the file content using the Chunker class
                 chunks = self.chunker.chunk_content(content, file)
@@ -82,6 +92,7 @@ class VoyageEmbeddings(Embeddings):
             context += f"File: {file}\n{str(chunk)}\n\n"
 
         return self.generate_response(prompt, context)
+
 
 # Example usage
 # embeddings = VoyageEmbeddings("/path/to/code/folder")

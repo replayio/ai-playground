@@ -6,27 +6,38 @@ from langchain_core.callbacks import (
 )
 from instrumentation import instrument
 
+
 class InvokeAgentInput(BaseModel):
     agent_name: str = Field(description="Name of the agent to invoke")
     prompt: str = Field(description="Prompt to run with the agent")
+
 
 class InvokeAgentTool(BaseTool):
     """
     A tool for invoking other agents by name and running them with a given prompt.
     """
+
     name: str = "invoke_agent"
     description: str = "Invokes another agent by name and runs it with a given prompt"
     args_schema: Type[BaseModel] = InvokeAgentInput
 
-#    agent_names: List[str]
+    #    agent_names: List[str]
 
     def __init__(self, agent_names: List[str]):
-#        self.agent_names = agent_names
+        #        self.agent_names = agent_names
         pass
 
-    @instrument("Tool._run", ["agent_name", "prompt"], attributes={ "tool": "InvokeAgentInput" })
-    def _run(self, agent_name: str, prompt: str, run_manager: Optional[AsyncCallbackManagerForToolRun])-> None:
+    @instrument(
+        "Tool._run", ["agent_name", "prompt"], attributes={"tool": "InvokeAgentInput"}
+    )
+    def _run(
+        self,
+        agent_name: str,
+        prompt: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun],
+    ) -> None:
         from agents.agents import agents_by_name
+
         if agent_name in self.agent_names:
             agent_class = agents_by_name.get(agent_name)
             if agent_class:

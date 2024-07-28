@@ -5,10 +5,9 @@ from langchain_core.callbacks import (
     AsyncCallbackManagerForToolRun,
 )
 from .ca_tool import CATool
-from deps import (
-    resolve_file_path, resolve_module_path
-)
+from deps import resolve_file_path, resolve_module_path
 from instrumentation import instrument
+
 
 class CAASTAnalyzerToolInput(BaseModel):
     files: List[str] = Field(None, description="List of relative file paths to analyze")
@@ -19,8 +18,10 @@ class CAASTAnalyzerToolInput(BaseModel):
     #
     # "anyOf": [{"required": ["files"]}, {"required": ["modules"]}]
 
+
 class CAASTAnalyzerTool(CATool):
     """Analyze the Abstract Syntax Tree of Python files"""
+
     name = "ca_analyze_ast"
     description = "Analyze the Abstract Syntax Tree of Python files"
     args_schema: Type[BaseModel] = CAASTAnalyzerToolInput
@@ -28,8 +29,13 @@ class CAASTAnalyzerTool(CATool):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-    @instrument("Tool._run", ["files", "modules"], attributes={ "tool": "CAExportsTool" })
-    def _run(self, files: List[str] | None, modules: List[str] | None, run_manager: Optional[AsyncCallbackManagerForToolRun])-> str:
+    @instrument("Tool._run", ["files", "modules"], attributes={"tool": "CAExportsTool"})
+    def _run(
+        self,
+        files: List[str] | None,
+        modules: List[str] | None,
+        run_manager: Optional[AsyncCallbackManagerForToolRun],
+    ) -> str:
         if files is None:
             files = []
         if modules is None:
