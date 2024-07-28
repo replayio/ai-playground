@@ -61,6 +61,13 @@ indent-style = "space"
 line-ending = "lf"
 quote-style = "double"
 
+[tool.pyright]
+include = ["code-monkey/src/**/*.py"]
+ignore = [
+    "code-monkey/src/tools/get_dependencies_tool.py",
+    "code-monkey/src/audio/**/*.py",
+    "code-monkey/src/embeddings/**/*.py"
+]
 
 [tool.rye.scripts]
-pyright = "pyright ./code-monkey/src/**/*.py"
+typecheck = "pyright"
