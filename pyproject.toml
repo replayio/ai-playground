@@ -6,36 +6,36 @@ authors = [
     { name = "D. Seifert", email = "Domiii@users.noreply.github.com" }
 ]
 dependencies = [
-    "langchain==0.2.7",
-    "langchain-core>=0.2.7",
-    "langchain-community==0.2.7",
-    "langchain-anthropic>=0.1.20",
-    "langchain-ollama>=0.1.0",
-    "langchain-openai>=0.1.15",
-    "langchain-fireworks>=0.1.5",
-    "langgraph>=0.1.11",
     "aiosqlite>=0.20.0",
-    "openai>=1.35.13",
-    "opentelemetry-api>=1.25.0",
-    "opentelemetry-sdk>=1.25.0",
-    "opentelemetry-exporter-otlp-proto-http>=1.25.0",
-    "python-dotenv>=1.0.1",
-    "unstructured>=0.14.10",
+    "colorlog>=6.8.2",
     "faiss-cpu>=1.8.0.post1",
-    "tiktoken>=0.7.0",
-    "graphviz>=0.20.3",
-    "pylint>=3.2.5",
-    "pathspec>=0.12.1",
-    "pyaudio>=0.2.14",
-    "speechrecognition>=3.10.4",
     "google-auth>=2.32.0",
     "google-cloud-speech>=2.26.1",
-    "pytest>=8.3.1",
-    "pynput>=1.7.7",
+    "graphviz>=0.20.3",
+    "langchain-anthropic>=0.1.20",
+    "langchain-community>=0.2.7",
+    "langchain-core>=0.2.7",
+    "langchain-fireworks>=0.1.5",
+    "langchain-ollama>=0.1.0",
+    "langchain-openai>=0.1.15",
+    "langchain==0.2.7",
+    "langgraph>=0.1.11",
     "networkx>=3.3",
-    "colorlog>=6.8.2",
+    "openai>=1.35.13",
+    "opentelemetry-api>=1.25.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.25.0",
+    "opentelemetry-sdk>=1.25.0",
+    "pathspec>=0.12.1",
+    "pyaudio>=0.2.14",
+    "pylint>=3.2.5",
+    "pynput>=1.7.7",
+    "pytest>=8.3.1",
+    "python-dotenv>=1.0.1",
     "rich>=13.7.1",
     "simple-term-menu>=1.6.4",
+    "speechrecognition>=3.10.4",
+    "tiktoken>=0.7.0",
+    "unstructured>=0.14.10",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
@@ -46,7 +46,9 @@ build-backend = "hatchling.build"
 
 [tool.rye]
 managed = true
-dev-dependencies = []
+dev-dependencies = [
+    "pyright>=1.1.373",
+]
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -58,3 +60,7 @@ packages = ["src/ai_playground"]
 indent-style = "space"
 line-ending = "lf"
 quote-style = "double"
+
+
+[tool.rye.scripts]
+pyright = "pyright ./code-monkey/src/**/*.py"
