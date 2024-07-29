@@ -16,7 +16,8 @@ from langgraph.checkpoint.aiosqlite import AsyncSqliteSaver
 import logging
 
 class Agent(BaseAgent):
-    # trying to figure out how to type this.  It's not a BaseChatModel, it's a CompiledGraph from langgraph.graph, but that's not exported
+    # trying to figure out how to type this.  It's not a BaseChatModel, it's a
+    # CompiledGraph from langgraph.graph, but that's not exported
     model: Any
 
     config = {
@@ -41,6 +42,9 @@ class Agent(BaseAgent):
     # Custom Agent initialization goes here, when necessary.
     def initialize(self):
         pass
+
+    def prepare_prompt(self, prompt: str) -> str:
+        return prompt
 
     @instrument("Agent.run_prompt", ["prompt"])
     async def run_prompt(self, prompt: str) -> str:

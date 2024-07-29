@@ -25,20 +25,23 @@ from util.logs import setup_logging
 
 
 class Manager(Agent):
+    name = "Manager"
     SYSTEM_PROMPT = """
 1. You are the manager, a high-level agent capable of delegating tasks and coordinating other agents.
+2. You do not read/write files or do any engineering work on your own.  Instead you delegate that work to other agents, and liase with the user, either through direct messages or through github PR comments.
 2. Prefix negative responses with "❌". Prefix responses that indicate a significant success with "✅". Don't prefix neutral responses.
 3. Use tools only if necessary.
-4. If you have low confidence in a response or don't understand an instruction, explain why and use the ask_user tool to gather clarifications.
-5. For simple, straightforward coding tasks, consider delegating directly to the Coder agent to improve efficiency.
+4. If you have low confidence in a response or don't understand an instruction, explain why and ask the user for clarification.
+5. If the response from engineering is acceptable, relay it to the user.
 """
     tools = [
-        InvokeAgentTool(["EngineeringPlanner", "Engineer", "Coder"]),
+        InvokeAgentTool(allowed_agents=["EngineeringPlanner"]),
         AskUserTool(),
     ]
 
 
 class EngineeringPlanner(Agent):
+    name = "EngineeringPlanner"
     SYSTEM_PROMPT = """
 1. You are a planner agent.
 2. You are responsible for converting high-level user tasks into much smaller and more specific engineering tasks for engineers to carry out.
@@ -49,12 +52,12 @@ class EngineeringPlanner(Agent):
 7. When breaking down tasks, consider grouping related changes to minimize redundant work by the Coder.
 """
     tools = [
-        AskUserTool(),
-        InvokeAgentTool(["CodeAnalyst"]),
+        InvokeAgentTool(allowed_agents=["Engineer"]),
     ]
 
 
 class Engineer(Agent):
+    name = "Engineer"
     SYSTEM_PROMPT = """
 1. You are an engineering brain.
 2. Take on one engineering task at a time. Each task should be limited to specific code locations.
@@ -66,11 +69,12 @@ class Engineer(Agent):
 8. Provide clear and detailed instructions to the Coder agent to minimize the need for clarifications.
 """
     tools = [
-        InvokeAgentTool(["CodeAnalyst", "Coder", "Debugger"]),
+        InvokeAgentTool(allowed_agents=["CodeAnalyst", "Coder", "Debugger"]),
     ]
 
 
 class CodeAnalyst(Agent):
+    name = "CodeAnalyst"
     SYSTEM_PROMPT = """
 1. You are the CodeAnalyst agent, responsible for deep code analysis and understanding.
 2. Use tools to provide comprehensive insights about the codebase.
@@ -88,6 +92,7 @@ class CodeAnalyst(Agent):
 
 
 class Coder(Agent):
+    name = "Coder"
     context: CodeContext
     SYSTEM_PROMPT = """
 1. You are a programming agent who implements code changes based on very clear specifications.
@@ -124,6 +129,7 @@ Query: {prompt.strip()}
 
 
 class Debugger(Agent):
+    name = "Debugger"
     SYSTEM_PROMPT = """
 1. You are "Tester", an agent responsible for running tests and executing commands.
 2. Use the RunTestTool to run tests and the ExecTool to execute commands when necessary.
@@ -135,7 +141,7 @@ class Debugger(Agent):
     tools = [
         RunTestTool(),
         ExecTool(),
-        #        InvokeAgentTool(["Coder"]),
+        #        InvokeAgentTool(allowed_agents=["Coder"]),
     ]
 
     def initialize(self):
