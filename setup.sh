@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This script sets up the environment for the AI Playground project.
-# It installs necessary dependencies and configures Google Cloud credentials.
+# It installs necessary dependencies, configures Google Cloud credentials, and fetches the dataset.
 
 # Install portaudio19-dev if not already installed to ensure pyaudio can build
 if ! dpkg -s portaudio19-dev >/dev/null 2>&1; then
@@ -102,6 +102,37 @@ install_graphviz() {
     fi
 }
 
+fetch_dataset() {
+    # URL of the dataset
+    DATASET_URL="https://huggingface.co/datasets/THUDM/humaneval-x/viewer"
+
+    # Output file
+    OUTPUT_FILE="human_eval_problems.json"
+
+    # Fetch the dataset
+    echo "Fetching dataset from $DATASET_URL..."
+    if command -v curl &> /dev/null; then
+        curl -s "$DATASET_URL" | jq '.' > "$OUTPUT_FILE"
+    elif command -v wget &> /dev/null; then
+        wget -qO- "$DATASET_URL" | jq '.' > "$OUTPUT_FILE"
+    else
+        echo "Error: Neither curl nor wget is available. Please install one of them to fetch the dataset."
+        return 1
+    fi
+
+    # Check if the fetch was successful
+    if [ $? -eq 0 ]; then
+        echo "Dataset successfully fetched and saved to $OUTPUT_FILE"
+    else
+        echo "Error: Failed to fetch the dataset"
+        return 1
+    fi
+}
+
 # Main script execution
 install_ripgrep
 install_graphviz
+fetch_dataset
+
+# Make the script executable
+chmod +x "$0"
