@@ -16,8 +16,6 @@ from langgraph.checkpoint.aiosqlite import AsyncSqliteSaver
 
 import logging
 
-logger = logging.getLogger(__name__)
-
 class Agent(BaseAgent):
     model: BaseChatModel
 
@@ -45,12 +43,13 @@ class Agent(BaseAgent):
 
     @instrument("Agent.run_prompt", ["prompt"])
     async def run_prompt(self, prompt: str):
-        logger.debug(f"Running prompt: {prompt}")
+        print(f"Running prompt: {prompt}")
 
         system = SystemMessage(content=self.get_system_prompt())
         msg = HumanMessage(content=self.prepare_prompt(prompt))
 
         modified_files: Set[str] = set()
+        logger = logging.getLogger(__name__)
 
         async for event in self.model.astream_events(
             {
