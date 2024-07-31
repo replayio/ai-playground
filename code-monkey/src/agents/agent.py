@@ -14,6 +14,9 @@ from .base_agent import BaseAgent
 from instrumentation import current_span, instrument
 from langgraph.checkpoint.aiosqlite import AsyncSqliteSaver
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Agent(BaseAgent):
     model: BaseChatModel
@@ -42,9 +45,6 @@ class Agent(BaseAgent):
 
     @instrument("Agent.run_prompt", ["prompt"])
     async def run_prompt(self, prompt: str):
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.debug(f"Running prompt: {prompt}")
 
         system = SystemMessage(content=self.get_system_prompt())
@@ -60,6 +60,7 @@ class Agent(BaseAgent):
             version="v2",
         ):
             kind = event["event"]
+            logger.debug(f"Agent received event: {kind}")
             if kind == "on_chat_model_start":
                 # for msg in event["data"]["input"]["messages"][0]:
                 #     print("----")

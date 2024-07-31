@@ -8,12 +8,13 @@ def get_logger(name):
 
 
 MAX_LENGTH = 200
+# MAX_LENGTH = 0
 
 
 class TruncatingFormatter(colorlog.ColoredFormatter):
     def format(self, record):
         message = super().format(record)
-        if len(message) > MAX_LENGTH:
+        if MAX_LENGTH > 0 and len(message) > MAX_LENGTH:
             return message[: MAX_LENGTH - 3] + "...\033[0m"
         return message
 

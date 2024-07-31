@@ -13,12 +13,15 @@ type ChatModelConstructor = Callable[
 def construct_anthropic(
     model_name: str, extra_flags: Dict[str | None, str | bool] | None
 ) -> BaseChatModel:
+    if not model_name:
+        model_name = "claude-3-5-sonnet-20240620"
     return ChatAnthropic(model_name=model_name, default_headers=extra_flags)
 
 
 def construct_openai(
     model_name: str, extra_flags: Dict[str | None, str | bool] | None
 ) -> BaseChatModel:
+    raise Exception("TODO(toshok): add model")
     return ChatOpenAI(model_name=model_name, default_headers=extra_flags)
 
 
