@@ -16,9 +16,11 @@
 # Setup
 
 * Install [rye](https://rye.astral.sh/guide/basics/), make sure its activated and sync'ed and put in your startup script.
-* Create a new .env.secret file and add your secrets, especially:
+* Create a new `.env.secret` file and add your secrets, especially:
+  * `AI_MSN` (required - chooses the AI service+model+additional flags)
   * `ANTHROPIC_API_KEY` (for Claude)
   * `OPENAI_API_KEY` (optional, for GPT-4)
+  * There is `.env.secret.example` with an example of `AI_MSN` for use with claude.
 * Google Cloud setup (for speech-to-text support)
   * -> See below
 * Run `./setup.sh` to get started.

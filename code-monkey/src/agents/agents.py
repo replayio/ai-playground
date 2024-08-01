@@ -170,7 +170,7 @@ async def _run_agent_impl(agent_class: Type[Agent]):
     load_environment()
 
     # Initialize agent.
-    agent = agent_class(os.getenv("AI_MSN"))
+    agent = agent_class()
     agent.initialize()
 
     # Read prompt from .prompt.md file

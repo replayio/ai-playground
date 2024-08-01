@@ -47,8 +47,7 @@ class CAExportsTool(CATool):
 
         exports_analysis = {}
         for file_path in all_files:
-            tree = self.parser.parse_file(file_path)
             module_name = get_module_name(file_path)
-            exports_analysis[module_name] = self.parser.get_exports(tree)
+            exports_analysis[module_name] = self.parser.get_exports(file_path)
 
         return json.dumps(exports_analysis, indent=1)

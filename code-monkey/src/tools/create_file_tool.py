@@ -38,7 +38,8 @@ class CreateFileTool(IOTool):
         try:
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, "x") as file:
-                file.write(content)
+                if content is not None:
+                    file.write(content)
             self.notify_file_modified(fname)
         except Exception:
             logging.error("Failed to create file: %s", file_path)

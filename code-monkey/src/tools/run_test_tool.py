@@ -106,7 +106,7 @@ class RunTestTool(BaseTool):
                 "cumpercall": cumpercall,
             }
 
-            return rv
+        return rv
 
     @instrument("Tool._run", ["fname"], attributes={"tool": "RunTestTool"})
     def _run(

@@ -4,11 +4,11 @@ from typing import List
 
 
 class BaseAgent(ABC):
-    tools: List[BaseTool] = None
+    tools: List[BaseTool] = []
     SYSTEM_PROMPT = "You don't know what to do. Tell the user that they can't use you and must use an agent with a proper SYSTEM_PROMPT instead."
 
     @abstractmethod
-    def run_prompt(self, prompt: str) -> str:
+    async def run_prompt(self, prompt: str) -> str:
         pass
 
     def get_system_prompt(self) -> str:
@@ -19,5 +19,5 @@ class BaseAgent(ABC):
         pass
 
     @abstractmethod
-    def handle_completion(self, had_any_text: bool, modified_files: set) -> None:
+    def handle_completion(self, modified_files: set) -> None:
         pass

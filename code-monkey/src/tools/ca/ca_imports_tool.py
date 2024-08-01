@@ -49,8 +49,7 @@ class CAImportsTool(CATool):
 
         imports_analysis = {}
         for file_path in all_files:
-            tree = self.parser.parse_file(file_path)
             module_name = get_module_name(file_path)
-            imports_analysis[module_name] = self.parser.get_imports(tree)
+            imports_analysis[module_name] = self.parser.get_imports(file_path)
 
         return json.dumps(imports_analysis, indent=1)

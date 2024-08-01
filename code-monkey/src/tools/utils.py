@@ -18,7 +18,7 @@ def ask_user(prompt: str) -> str:
     return input()
 
 
-def show_diff(original_file: str, modified_file: str) -> str:
+def show_diff(original_file: str, modified_file: str) -> None:
     logging.debug(f"Diffing {original_file} and {modified_file}")
     if os.path.exists(original_file) and os.path.exists(modified_file):
         subprocess.run(
