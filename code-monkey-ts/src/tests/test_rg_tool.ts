@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import { runRipgrep } from '../tools/rg_tool';
+import { exec, ExecException, ChildProcess } from 'child_process';
 
 describe('runRipgrep', () => {
     let sandbox: sinon.SinonSandbox;
@@ -14,9 +15,8 @@ describe('runRipgrep', () => {
     });
 
     it('should return the correct output when matches are found', async () => {
-        const execStub = sandbox.stub(require('child_process'), 'exec').callsFake((command, callback) => {
-            callback(null, { stdout: 'match1\nmatch2\n', stderr: '' });
-        });
+        const execStub = sandbox.stub(exec);
+        execStub.yields(null, 'match1\nmatch2\n', '');
 
         const result = await runRipgrep('pattern', 'path');
         expect(result.success).to.be.true;
@@ -25,9 +25,8 @@ describe('runRipgrep', () => {
     });
 
     it('should return an error when the command fails', async () => {
-        const execStub = sandbox.stub(require('child_process'), 'exec').callsFake((command, callback) => {
-            callback(new Error('Command failed'), { stdout: '', stderr: 'error' });
-        });
+        const execStub = sandbox.stub(exec);
+        execStub.yields(new Error('Command failed'), '', 'error');
 
         const result = await runRipgrep('pattern', 'path');
         expect(result.success).to.be.false;
@@ -36,9 +35,8 @@ describe('runRipgrep', () => {
     });
 
     it('should return an empty output when no matches are found', async () => {
-        const execStub = sandbox.stub(require('child_process'), 'exec').callsFake((command, callback) => {
-            callback(null, { stdout: '', stderr: '' });
-        });
+        const execStub = sandbox.stub(exec);
+        execStub.yields(null, '', '');
 
         const result = await runRipgrep('pattern', 'path');
         expect(result.success).to.be.true;
