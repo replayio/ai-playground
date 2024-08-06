@@ -1,10 +1,6 @@
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
-import { promisify } from 'util';
 import { Chunker, Chunk } from './chunker';
-
-const readFile = promisify(fs.readFile);
-const writeFile = promisify(fs.writeFile);
 
 interface Embedding {
     vector: number[];
@@ -15,10 +11,14 @@ interface Embedding {
     };
 }
 
-class Embedder {
-    private model: any; // Replace 'any' with the actual type of the embedding model
+interface EmbeddingModel {
+    embed(text: string): Promise<number[]>;
+}
 
-    constructor(model: any) {
+class Embedder {
+    private model: EmbeddingModel;
+
+    constructor(model: EmbeddingModel) {
         this.model = model;
     }
 
@@ -53,24 +53,27 @@ class Embedder {
     }
 
     async saveEmbeddings(embeddings: Embedding[], outputPath: string): Promise<void> {
-        await writeFile(outputPath, JSON.stringify(embeddings, null, 2), 'utf-8');
+        await fs.writeFile(outputPath, JSON.stringify(embeddings, null, 2), 'utf-8');
     }
 
     async loadEmbeddings(inputPath: string): Promise<Embedding[]> {
-        const content = await readFile(inputPath, 'utf-8');
+        const content = await fs.readFile(inputPath, 'utf-8');
         return JSON.parse(content) as Embedding[];
     }
 }
 
+export { Embedder, Embedding, EmbeddingModel };
+
 // Main execution
-if (require.main === module) {
+if (typeof require !== 'undefined' && require.main === module) {
     (async () => {
-        if (process.argv.length !== 5) {
-            console.error('Usage: node embeddings.js <file_path> <chunk_size> <output_path>');
+        const args = process.argv.slice(2);
+        if (args.length !== 3) {
+            console.error('Usage: ts-node embeddings.ts <file_path> <chunk_size> <output_path>');
             process.exit(1);
         }
 
-        const [, , filePath, chunkSizeStr, outputPath] = process.argv;
+        const [filePath, chunkSizeStr, outputPath] = args;
         const chunkSize = parseInt(chunkSizeStr, 10);
 
         if (isNaN(chunkSize) || chunkSize <= 0) {
@@ -80,16 +83,19 @@ if (require.main === module) {
 
         try {
             // Note: You need to implement or import the actual embedding model
-            const model = null; // Replace with actual model initialization
+            const model: EmbeddingModel = {
+                embed: async (text: string) => {
+                    // Placeholder implementation
+                    return new Array(128).fill(0);
+                }
+            };
             const embedder = new Embedder(model);
             const embeddings = await embedder.embedFile(filePath, chunkSize);
             await embedder.saveEmbeddings(embeddings, outputPath);
             console.log('Embeddings saved successfully.');
         } catch (error) {
-            console.error('Error:', error.message);
+            console.error('Error:', (error as Error).message);
             process.exit(1);
         }
     })();
 }
-
-export { Embedder, Embedding };

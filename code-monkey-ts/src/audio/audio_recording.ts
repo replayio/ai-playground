@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
 import { exec } from 'child_process';
+import { isError, getErrorMessage } from '../utils/error_handling';
 
 const writeFile = promisify(fs.writeFile);
 const execAsync = promisify(exec);
@@ -26,7 +27,7 @@ async function recordAudio(duration: number, outputPath: string): Promise<Record
     } catch (error) {
         return {
             success: false,
-            error: error.message,
+            error: getErrorMessage(error),
         };
     }
 }
@@ -50,14 +51,14 @@ if (require.main === module) {
         }
 
         const result = await recordAudio(duration, outputPath);
-        
+
         if (result.success) {
             console.log('Audio recorded successfully.');
             console.log('File saved at:', result.filePath);
         } else {
-            console.error('Error:', result.error);
+            console.error('Error:', getErrorMessage(result.error));
         }
-        
+
         process.exit(result.success ? 0 : 1);
     })();
 }

@@ -31,8 +31,12 @@ describe('ASTParser', () => {
             const filePath = path.join(__dirname, 'sample_b.ts');
             const sourceFile = parser.parseFile(filePath);
             const classNode = sourceFile.statements.find(node => node.kind === 229); // ClassDeclaration
-            const fullyQualifiedName = parser.getFullyQualifiedName(classNode);
-            expect(fullyQualifiedName).to.equal('SampleClass');
+            if (classNode) {
+                const fullyQualifiedName = parser.getFullyQualifiedName(classNode);
+                expect(fullyQualifiedName).to.equal('SampleClass');
+            } else {
+                throw new Error('ClassDeclaration not found in the file');
+            }
         });
     });
 

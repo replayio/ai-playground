@@ -1,8 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as shutil from 'fs-extra';
-import * as pathspec from 'pathspec';
-import { getArtifactsDir, getRootDir } from './constants';
+import ignore from 'ignore';
+import { getArtifactsDir, getRootDir } from './src/constants';
 
 function getAllSrcFiles(): string[] {
     const srcFiles: string[] = [];
@@ -28,8 +28,8 @@ function getAllSrcFiles(): string[] {
         }
     }
 
-    // Create PathSpec object
-    const ignoreSpec: pathspec.GitIgnoreSpec = pathspec.GitIgnoreSpec.from_lines(gitignorePatterns);
+    // Create ignore object
+    const ignoreSpec = ignore().add(gitignorePatterns);
 
     const walkSync = (dir: string, filelist: string[] = []): string[] => {
         fs.readdirSync(dir).forEach((file) => {
@@ -38,7 +38,7 @@ function getAllSrcFiles(): string[] {
                 filelist = walkSync(dirFile, filelist);
             } else {
                 const relPath = path.relative(getRootDir(), dirFile);
-                if (!ignoreSpec.match_file(relPath)) {
+                if (!ignoreSpec.ignores(relPath)) {
                     filelist.push(relPath);
                 }
             }

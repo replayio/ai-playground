@@ -1,4 +1,4 @@
-import { Coder, runAgentMain } from './agents/agents';
+import { Coder, runAgentMain } from './src/agents/agents';
 
 async function main(): Promise<void> {
     await runAgentMain(Coder);

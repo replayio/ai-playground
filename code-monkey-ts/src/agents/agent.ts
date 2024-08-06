@@ -1,61 +1,84 @@
 import { BaseAgent } from './base_agent';
-import { BaseChatModel } from '../models/chat_model';
-import { MSN } from '../models/msn';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { getModelServiceCtor, ChatModelConstructor } from '../models/msn';
 import { createReactAgent } from '../utils/agent_utils';
 import { AsyncSqliteSaver } from '../utils/sqlite_saver';
-import { SystemMessage, HumanMessage } from '../utils/message_types';
+import { SystemMessage, HumanMessage, BaseMessage } from '@langchain/core/messages';
 import { instrument } from '../instrumentation/instrument';
-import { getRootDir, getArtifactsDir } from '../constants';
-import { showDiff, askUser } from '../tools/user_interaction_tools';
+import { getArtifactsDir } from '../constants';
 import { logger } from '../utils/logger';
-import { EventType } from '../types/event_types';
+import { Tool } from '@langchain/core/tools';
 
-export class Agent extends BaseAgent {
+@instrument('Agent', [], { attributes: { tool: "Agent" } })
+class Agent extends BaseAgent {
   model: BaseChatModel;
+  private tools: Tool[];
 
-  @instrument('Agent.init')
-  constructor(msnStr: string | null) {
+  constructor(msnStr: string) {
     super();
-    const msn = MSN.fromString(msnStr);
-    const memory = new AsyncSqliteSaver(':memory:');
+    const ModelConstructor: ChatModelConstructor = getModelServiceCtor(msnStr);
+    const model = ModelConstructor("default-model", null);
+    const memory = new AsyncSqliteSaver();
+    this.tools = []; // Initialize tools array
     this.model = createReactAgent(
-      msn.constructModel(),
+      model,
       this.tools,
-      memory,
+      memory
     );
-    this.initialize();
   }
 
-  @instrument('Agent.runPrompt')
-  async runPrompt(prompt: string): Promise<void> {
+  getSystemPrompt(): string {
+    // Implement the abstract method
+    return "Default system prompt";
+  }
+
+  preparePrompt(prompt: string): string {
+    // Implement the abstract method
+    return `Prepared prompt: ${prompt}`;
+  }
+
+  @instrument('Agent.runPrompt', ['prompt'], { attributes: { tool: "Agent" } })
+  async runPrompt(prompt: string): Promise<string> {
     console.log(`Running prompt: ${prompt}`);
     const system = new SystemMessage(this.getSystemPrompt());
     const msg = new HumanMessage(this.preparePrompt(prompt));
     const modifiedFiles: Set<string> = new Set();
 
-    for await (const event of this.model.streamEvents(
-      { messages: [system, msg] },
-      this.config,
-      'v2',
-    )) {
-      const kind: EventType = event.event;
-      logger.debug(`Agent received event: ${kind}`);
-      // Handle events here
-      // ...
+    try {
+      const events = await this.model.call([system, msg]);
+      if (Array.isArray(events)) {
+        for (const event of events) {
+          if (typeof event === 'object' && event !== null && 'type' in event) {
+            logger.debug(`Agent received event: ${event.type}`);
+            // Handle events here
+            // ...
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error during prompt execution: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
     }
 
-    this.handleCompletion(modifiedFiles);
+    await this.handleCompletion(true, modifiedFiles);
+    return "Prompt execution completed";
   }
 
-  @instrument('Agent.handleCompletion')
-  handleCompletion(modifiedFiles: Set<string>): void {
+  @instrument('Agent.handleCompletion', ['hadAnyText', 'modifiedFiles'], { attributes: { tool: "Agent" } })
+  public async handleCompletion(hadAnyText: boolean, modifiedFiles: Set<string>): Promise<void> {
     // Handle completion, show diffs, ask user to apply changes
-    // ...
+    // Implement the completion logic here
+    for (const file of modifiedFiles) {
+      this.handleModifiedFile(file);
+    }
   }
 
-  @instrument('Agent.handleModifiedFile')
-  handleModifiedFile(file: string): void {
+  @instrument('Agent.handleModifiedFile', ['file'], { attributes: { tool: "Agent" } })
+  private handleModifiedFile(file: string): void {
     // Handle modified file, show diff, ask user to apply changes
-    // ...
+    console.log(`File modified: ${file}`);
+    // Implement file modification handling logic here
   }
 }
+
+export { Agent };

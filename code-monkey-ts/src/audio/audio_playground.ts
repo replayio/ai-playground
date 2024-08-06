@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import { exec } from 'child_process';
 import { recordAudio, RecordingResult } from './audio_recording';
 import { transcribeAudio, TranscriptionResult } from './audio_transcriber';
+import { isError, getErrorMessage } from '../utils/error_handling';
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -57,7 +58,7 @@ if (require.main === module) {
 
             console.log('Audio playground demo completed successfully.');
         } catch (error) {
-            console.error('Error:', error.message);
+            console.error('Error:', getErrorMessage(error));
             process.exit(1);
         }
     })();

@@ -1,4 +1,5 @@
 import * as readline from 'readline';
+import { isError, getErrorMessage } from '../utils/error_handling';
 
 interface AudioInputResult {
     success: boolean;
@@ -30,7 +31,7 @@ async function getAudioInput(prompt: string): Promise<AudioInputResult> {
     } catch (error) {
         return {
             success: false,
-            error: error.message
+            error: getErrorMessage(error)
         };
     } finally {
         rl.close();

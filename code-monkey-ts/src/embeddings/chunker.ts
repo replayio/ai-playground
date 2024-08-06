@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
+import { isError, getErrorMessage } from '../utils/error_handling';
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -51,7 +52,7 @@ class Chunker {
 if (require.main === module) {
     (async () => {
         if (process.argv.length !== 5) {
-            console.error('Usage: node chunker.js <file_path> <chunk_size> <output_dir>');
+            console.error('Usage: ts-node chunker.ts <file_path> <chunk_size> <output_dir>');
             process.exit(1);
         }
 
@@ -69,7 +70,7 @@ if (require.main === module) {
             await chunker.saveChunks(chunks, outputDir);
             console.log('Chunks saved successfully.');
         } catch (error) {
-            console.error('Error:', error.message);
+            console.error('Error:', getErrorMessage(error));
             process.exit(1);
         }
     })();
