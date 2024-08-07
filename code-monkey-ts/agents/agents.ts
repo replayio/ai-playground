@@ -1,88 +1,132 @@
-import { Agent } from './agent';
-import { InvokeAgentTool } from '../tools/invoke_agent_tool';
-import { AskUserTool } from '../tools/ask_user_tool';
-import { CodeContext } from '../code_context';
-import { Tool } from '@langchain/core/tools';
+import { ChatOpenAI } from "@langchain/openai";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { Tool } from "@langchain/core/tools";
+import { AgentExecutor, createToolCallingAgent } from "langchain/agents";
+import * as fs from 'fs';
+import * as path from 'path';
 
-class Manager extends Agent {
-    static override SYSTEM_PROMPT = `
-    You are the Manager, an AI designed to manage and coordinate tasks among various agents.
-    Your goal is to ensure that tasks are distributed efficiently and completed successfully.
-    `;
+import { askUser, showDiff } from '../tools/utils';
+import { getRootDir, getArtifactsDir, getAgentMsn } from '../constants';
+import { MSN } from '../models/msn';
+import { BaseAgent } from './base_agent';
+import { currentSpan, instrument } from '../instrumentation';
+import { getLogger } from '../util/logs';
 
-    static override tools: Tool[] = [
-        new InvokeAgentTool() as unknown as Tool,
-        new AskUserTool() as unknown as Tool,
-    ];
+class Agent extends BaseAgent {
+  private model: AgentExecutor;
+  private config: { configurable: { thread_id: string } };
 
-    context: CodeContext;
+  constructor() {
+    super();
+    const msnStr = getAgentMsn();
+    const msn = MSN.fromString(msnStr);
 
-    constructor(msn: string) {
-        super(msn);
-        this.context = new CodeContext();
+    const llm = msn.constructModel() as ChatOpenAI;
+    const tools = this.tools as Tool[];
+    
+    const prompt = ChatPromptTemplate.fromMessages([
+      ["system", this.getSystemPrompt()],
+      ["human", "{input}"],
+      ["placeholder", "{agent_scratchpad}"],
+    ]);
+    
+    const agent = createToolCallingAgent({
+      llm,
+      tools,
+      prompt,
+    });
+
+    this.model = new AgentExecutor({
+      agent,
+      tools,
+    });
+
+    this.config = {
+      configurable: { thread_id: "abc123" },
+    };
+
+    this.initialize();
+  }
+
+  // Custom Agent initialization goes here, when necessary.
+  @instrument("Agent.initialize", ["msn_str"])
+  initialize(): void {}
+
+  preparePrompt(prompt: string): string {
+    return prompt;
+  }
+
+  @instrument("Agent.runPrompt", ["prompt"])
+  async runPrompt(prompt: string): Promise<string> {
+    const logger = getLogger();
+    logger.info(`Running prompt: ${prompt}`);
+
+    const input = this.preparePrompt(prompt);
+
+    const modifiedFiles: Set<string> = new Set();
+    let result: string | null = null;
+
+    const response = await this.model.invoke({ input });
+
+    result = response.output;
+
+    // Assuming the agent might modify files during execution
+    // You may need to adjust this part based on how your agent actually modifies files
+    if ('intermediateSteps' in response) {
+      for (const step of response.intermediateSteps) {
+        if (step.action.tool === 'file_modified') {
+          modifiedFiles.add(step.action.toolInput as string);
+        }
+      }
     }
 
-    setContext(context: CodeContext): void {
-        this.context = context;
+    this.handleCompletion(modifiedFiles);
+
+    logger.debug(`[AGENT ${this.name}] run_prompt result: "${result || ""}"`);
+    return result || "";
+  }
+
+  @instrument("Agent.handleCompletion")
+  handleCompletion(modifiedFiles: Set<string>): void {
+    const span = currentSpan();
+    span.setAttributes({
+      "num_modified_files": modifiedFiles.size,
+      "modified_files": Array.from(modifiedFiles).join(", "),
+    });
+
+    if (modifiedFiles.size > 0) {
+      for (const file of modifiedFiles) {
+        this.handleModifiedFile(file);
+      }
     }
+  }
 
-    override preparePrompt(prompt: string): string {
-        return `
-        These are all files: ${this.context.copySrc()}.
-        Query: ${prompt.trim()}
-        `.trim();
+  @instrument("Agent.handleModifiedFile", ["file"])
+  handleModifiedFile(file: string): void {
+    const originalFile = path.join(getRootDir(), file);
+    const modifiedFile = path.join(getArtifactsDir(), file);
+    showDiff(originalFile, modifiedFile);
+    const response = askUser(
+      `Do you want to apply the changes to ${file} (diff shown in VSCode)? (Y/n): `
+    ).toLowerCase();
+
+    const applyChanges = response === "y" || response === "";
+
+    currentSpan().setAttribute("apply_changes", applyChanges);
+
+    if (applyChanges) {
+      this.applyChanges(originalFile, modifiedFile);
+      console.log(`✅ Changes applied to ${file}`);
+    } else {
+      console.log(`❌ Changes not applied to ${file}`);
     }
+  }
+
+  @instrument("Agent.applyChanges", ["originalFile", "modifiedFile"])
+  applyChanges(originalFile: string, modifiedFile: string): void {
+    const modifiedContent = fs.readFileSync(modifiedFile, 'utf8');
+    fs.writeFileSync(originalFile, modifiedContent);
+  }
 }
 
-class EngineeringPlanner extends Agent {
-    static override SYSTEM_PROMPT = `
-    You are the Engineering Planner, responsible for creating high-level plans for software projects.
-    `;
-
-    static override tools: Tool[] = [new AskUserTool() as unknown as Tool];
-}
-
-class Engineer extends Agent {
-    static override SYSTEM_PROMPT = `
-    You are the Engineer, tasked with implementing technical solutions based on the plans provided.
-    `;
-
-    static override tools: Tool[] = [new AskUserTool() as unknown as Tool];
-}
-
-class CodeAnalyst extends Agent {
-    static override SYSTEM_PROMPT = `
-    You are the Code Analyst, responsible for reviewing and analyzing code for quality and potential improvements.
-    `;
-
-    static override tools: Tool[] = [new AskUserTool() as unknown as Tool];
-}
-
-class Coder extends Agent {
-    static override SYSTEM_PROMPT = `
-    You are the Coder, tasked with writing and modifying code based on specifications and requirements.
-    `;
-
-    static override tools: Tool[] = [new AskUserTool() as unknown as Tool];
-}
-
-class Debugger extends Agent {
-    static override SYSTEM_PROMPT = `
-    You are the Debugger, responsible for identifying and fixing issues in the codebase.
-    `;
-
-    static override tools: Tool[] = [new AskUserTool() as unknown as Tool];
-}
-
-async function runAgentImpl(agentClass: new (msn: string) => Agent): Promise<void> {
-    const agent = new agentClass("default");
-    await agent.runPrompt("");
-}
-
-async function runAgentMain(agentClass: new (msn: string) => Agent): Promise<void> {
-    await runAgentImpl(agentClass);
-}
-
-const agents: Array<new (msn: string) => Agent> = [Manager, EngineeringPlanner, Engineer, CodeAnalyst, Coder, Debugger];
-
-export { Manager, EngineeringPlanner, Engineer, CodeAnalyst, Coder, Debugger, runAgentMain, agents };
+export default Agent;

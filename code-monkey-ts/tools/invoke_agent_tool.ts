@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { tool } from "@langchain/core/tools";
 import { CallbackManagerForToolRun } from "@langchain/core/callbacks";
-import { instrument } from "../instrumentation/instrument";
+import { instrument } from "../instrumentation";
 import { getLogger } from "../utils/logger";
 import { dispatchCustomEvent } from "../utils/agent_utils";
 

@@ -6,17 +6,21 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    // Needed for decorators?
+    "useDefineForClassFields": false,
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
-      "*": ["node_modules/*", "code-monkey-ts/node_modules"]
+      "*": ["node_modules/*"]
     },
     "types": ["jest", "node"],
     "downlevelIteration": true,
     "noEmit": true
   },
-  "include": ["code-monkey-ts/**/*"],
-  "exclude": ["node_modules", "dist", "jest.config.js"]
+  "include": ["code-monkey-ts/**/*", "eslint.config.js"],
+  "exclude": ["node_modules", "dist", "jest.config.js", "artifacts"]
 }

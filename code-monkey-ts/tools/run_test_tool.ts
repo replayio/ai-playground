@@ -4,7 +4,7 @@ import * as child_process from 'child_process';
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { getArtifactsDir } from '../constants';
-import { instrument } from '../instrumentation/instrument';
+import { instrument } from '../instrumentation';
 import { makeFilePath } from './utils';
 
 const summarizeProfilingOutput = (profFile: string): Record<string, any> => {

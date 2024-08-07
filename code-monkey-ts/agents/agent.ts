@@ -1,188 +1,132 @@
-import { AIMessage, BaseMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { Tool } from "@langchain/core/tools";
-import { ChatAnthropic } from "@langchain/anthropic";
-import { StateGraph, StateGraphArgs } from "@langchain/langgraph";
-import { MemorySaver } from "@langchain/langgraph";
-import { ToolNode, createReactAgent } from "@langchain/langgraph/prebuilt";
-import { PromptTemplate } from "@langchain/core/prompts";
-import fs from 'fs';
-import path from 'path';
+import { AgentExecutor, createToolCallingAgent } from "langchain/agents";
+import * as fs from 'fs';
+import * as path from 'path';
+
+import { askUser, showDiff } from '../tools/utils';
 import { getRootDir, getArtifactsDir, getAgentMsn } from '../constants';
 import { MSN } from '../models/msn';
-import { askUser, showDiff } from '../tools/utils';
-import { instrument, currentSpan } from '../instrumentation';
-import Logger from '../logger';
+import { BaseAgent } from './base_agent';
+import { currentSpan, instrument } from '../instrumentation';
+import { getLogger } from '../util/logs';
 
-interface AgentState {
-  messages: BaseMessage[];
-}
+class Agent extends BaseAgent {
+  private model: AgentExecutor;
+  private config: { configurable: { thread_id: string } };
 
-export class Agent {
-  private model: ChatAnthropic;
-  private workflow: any; // The compiled StateGraph
-  private checkpointer: MemorySaver;
-  private executor: AgentExecutor;
-  static tools: BaseTool[];
-  static SYSTEM_PROMPT: string;
-
-  @instrument('Agent.__init__', ['msn_str'])
   constructor() {
+    super();
     const msnStr = getAgentMsn();
     const msn = MSN.fromString(msnStr);
 
-    this.model = new ChatAnthropic({
-      modelName: msn.modelName,
-      temperature: 0,
-    });
-
-    this.initialize();
-  }
-
-  async initialize(): Promise<void> {
-    const toolNode = new ToolNode<AgentState>(tools);
-
-    this.model = this.model.bind({ tools });
-
-    // Create ReAct agent
-    const prompt = await pull<PromptTemplate>("hwchase17/react");
-    const agent = await createReactAgent({
-      llm: this.model,
-      tools: (this.constructor as typeof Agent).tools,
+    const llm = msn.constructModel();
+    const tools = this.tools as Tool[];
+    
+    const prompt = ChatPromptTemplate.fromMessages([
+      ["system", this.getSystemPrompt()],
+      ["human", "{input}"],
+      ["placeholder", "{agent_scratchpad}"],
+    ]);
+    
+    const agent = createToolCallingAgent({
+      llm,
+      tools,
       prompt,
     });
 
-    this.executor = new AgentExecutor({
+    this.model = new AgentExecutor({
       agent,
       tools,
     });
 
-    const graphState: StateGraphArgs<AgentState>["channels"] = {
-      messages: {
-        reducer: (x: BaseMessage[], y: BaseMessage[]) => x.concat(y),
-      },
+    this.config = {
+      configurable: { thread_id: "abc123" },
     };
 
-    const workflow = new StateGraph<AgentState>({ channels: graphState })
-      .addNode("agent", this.callAgent.bind(this))
-      .addNode("tools", toolNode)
-      .addEdge("__start__", "agent")
-      .addConditionalEdges("agent", this.shouldContinue)
-      .addEdge("tools", "agent");
-
-    this.checkpointer = new MemorySaver();
-    this.workflow = workflow.compile({ checkpointer: this.checkpointer });
+    this.initialize();
   }
 
-  getTools(): Tool[] {
-    return [
-      new Tool({
-        name: "file_modified",
-        description: "Notifies when a file has been modified.",
-        func: async ({ file }: { file: string }) => {
-          // Implement file modification logic
-          return `File ${file} has been modified.`;
-        },
-      }),
-    ];
+  // Custom Agent initialization goes here, when necessary.
+  @instrument("Agent.initialize", ["msn_str"])
+  initialize(): void {}
+
+  preparePrompt(prompt: string): string {
+    return prompt;
   }
 
-  async callAgent(state: AgentState) {
-    const messages = state.messages;
-    const result = await this.executor.invoke({ input: messages[messages.length - 1].content, chat_history: messages });
-    return { messages: [...messages, new AIMessage(result.output)] };
-  }
-
-  shouldContinue(state: AgentState) {
-    const messages = state.messages;
-    const lastMessage = messages[messages.length - 1] as AIMessage;
-
-    if (lastMessage.additional_kwargs?.tool_calls?.length) {
-      return "tools";
-    }
-    return "__end__";
-  }
-
-  @instrument('Agent.runPrompt', ['prompt'])
+  @instrument("Agent.runPrompt", ["prompt"])
   async runPrompt(prompt: string): Promise<string> {
-    const logger = Logger.getLogger(__filename);
+    const logger = getLogger(__filename);
     logger.info(`Running prompt: ${prompt}`);
 
-    const systemMessage = new SystemMessage(this.getSystemPrompt());
-    const humanMessage = new HumanMessage(this.preparePrompt(prompt));
+    const input = this.preparePrompt(prompt);
 
-    const finalState = await this.workflow.invoke(
-      { messages: [systemMessage, humanMessage] },
-      { configurable: { thread_id: "agent_thread" } }
-    );
+    const modifiedFiles: Set<string> = new Set();
+    let result: string | null = null;
 
-    const result = finalState.messages[finalState.messages.length - 1].content;
-    console.log(result);
+    const response = await this.model.invoke({ input });
 
-    await this.handleCompletion(this.getModifiedFiles(finalState));
+    result = response.output;
 
-    return result;
-  }
-
-  getModifiedFiles(finalState: AgentState): Set<string> {
-    const modifiedFiles = new Set<string>();
-    for (const message of finalState.messages) {
-      if ('additional_kwargs' in message && message.additional_kwargs.tool_calls) {
-        for (const toolCall of message.additional_kwargs.tool_calls) {
-          if (toolCall.function.name === 'file_modified') {
-            const args = JSON.parse(toolCall.function.arguments);
-            modifiedFiles.add(args.file);
-          }
+    // Assuming the agent might modify files during execution
+    // You may need to adjust this part based on how your agent actually modifies files
+    if ('intermediateSteps' in response) {
+      for (const step of response.intermediateSteps) {
+        if (step.action.tool === 'file_modified') {
+          modifiedFiles.add(step.action.toolInput as string);
         }
       }
     }
-    return modifiedFiles;
+
+    this.handleCompletion(result !== null && result.length > 0, modifiedFiles);
+
+    logger.debug(`[AGENT ${this.name}] run_prompt result: "${result || ""}"`);
+    return result || "";
   }
 
-  @instrument('Agent.handleCompletion')
-  private async handleCompletion(modifiedFiles: Set<string>): Promise<void> {
+  @instrument("Agent.handleCompletion")
+  handleCompletion(hadAnyText: boolean, modifiedFiles: Set<string>): void {
     const span = currentSpan();
     span.setAttributes({
-      num_modified_files: modifiedFiles.size,
-      modified_files: Array.from(modifiedFiles).join(', '),
+      "had_any_text": hadAnyText,
+      "num_modified_files": modifiedFiles.size,
+      "modified_files": Array.from(modifiedFiles).join(", "),
     });
 
-    for (const file of modifiedFiles) {
-      await this.handleModifiedFile(file);
+    if (modifiedFiles.size > 0) {
+      for (const file of modifiedFiles) {
+        this.handleModifiedFile(file);
+      }
     }
   }
 
-  @instrument('Agent.handleModifiedFile', ['file'])
-  private async handleModifiedFile(file: string): Promise<void> {
+  @instrument("Agent.handleModifiedFile", ["file"])
+  async handleModifiedFile(file: string): Promise<void> {
     const originalFile = path.join(getRootDir(), file);
     const modifiedFile = path.join(getArtifactsDir(), file);
-    
     showDiff(originalFile, modifiedFile);
-    const response = await askUser(`Do you want to apply the changes to ${file} (diff shown in VSCode)? (Y/n): `);
+    const response = (await askUser(
+      `Do you want to apply the changes to ${file} (diff shown in VSCode)? (Y/n): `
+    )).toLowerCase();
 
-    const applyChanges = response.toLowerCase() === 'y' || response === '';
+    const applyChanges = response === "y" || response === "";
 
-    currentSpan().setAttribute('apply_changes', applyChanges);
+    currentSpan().setAttribute("apply_changes", applyChanges);
 
     if (applyChanges) {
-      await this.applyChanges(originalFile, modifiedFile);
+      this.applyChanges(originalFile, modifiedFile);
       console.log(`✅ Changes applied to ${file}`);
     } else {
       console.log(`❌ Changes not applied to ${file}`);
     }
   }
 
-  @instrument('Agent.applyChanges', ['originalFile', 'modifiedFile'])
-  private async applyChanges(originalFile: string, modifiedFile: string): Promise<void> {
-    const modifiedContent = await fs.promises.readFile(modifiedFile, 'utf-8');
-    await fs.promises.writeFile(originalFile, modifiedContent);
-  }
-
-  preparePrompt(prompt: string): string {
-    return prompt;
-  }
-
-  getSystemPrompt(): string {
-    // Implement your system prompt logic here
-    return "You are a helpful AI assistant.";
+  @instrument("Agent.applyChanges", ["originalFile", "modifiedFile"])
+  applyChanges(originalFile: string, modifiedFile: string): void {
+    const modifiedContent = fs.readFileSync(modifiedFile, 'utf8');
+    fs.writeFileSync(originalFile, modifiedContent);
   }
 }
+
+export default Agent;

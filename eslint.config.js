@@ -6,6 +6,9 @@ const jestPlugin = require("eslint-plugin-jest");
 
 module.exports = [
   {
+    ignores: ["**/artifacts/**"],
+  },
+  {
     files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
       parser: typescriptParser,
@@ -54,23 +57,28 @@ module.exports = [
     },
   },
   {
-    files: [
-      '(/tests/.*|(\\.|/)(test|spec))\\.tsx?$',
-    ],
+    files: ["**/tests/**/*.[jt]s?(x)", "**/?(*.)+(spec|test).[jt]s?(x)"],
     plugins: {
       jest: jestPlugin,
     },
     languageOptions: {
       globals: {
-        ...jestPlugin.environments.globals,
+        jest: "readonly",
+        describe: "readonly",
+        it: "readonly",
+        expect: "readonly",
+        beforeEach: "readonly",
+        afterEach: "readonly",
+        beforeAll: "readonly",
+        afterAll: "readonly",
       },
     },
     rules: {
       // Add any specific rules for test files here
-      'jest/no-disabled-tests': 'warn',
-      'jest/no-focused-tests': 'error',
-      'jest/no-identical-title': 'error',
-      'jest/valid-expect': 'error',
+      "jest/no-disabled-tests": "warn",
+      "jest/no-focused-tests": "error",
+      "jest/no-identical-title": "error",
+      "jest/valid-expect": "error",
     },
   },
 ];

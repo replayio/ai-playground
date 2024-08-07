@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import { z } from "zod";
 import { tool } from "@langchain/core/tools";
 import { makeFilePath } from './utils';
-import { instrument } from '../instrumentation/instrument';
+import { instrument } from '../instrumentation';
 import { notifyFileModified } from './io_tool';
 
 const schema = z.object({

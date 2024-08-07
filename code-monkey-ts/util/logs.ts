@@ -10,11 +10,11 @@ function getTruncatedMessage(message: string): string {
   return message;
 }
 
-function getLogger(name: string): winston.Logger {
+export function getLogger(name: string): winston.Logger {
   return winston.loggers.get(`codemonkey:${name}`);
 }
 
-function setupLogging(debug: boolean): void {
+export function setupLogging(debug: boolean): void {
   const transports: winston.transport[] = [];
 
   if (debug) {
@@ -51,4 +51,3 @@ function setupLogging(debug: boolean): void {
   winston.loggers.options.transports = transports;
 }
 
-export { getLogger, setupLogging };

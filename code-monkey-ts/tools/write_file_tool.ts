@@ -3,7 +3,7 @@ import * as path from 'path';
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { makeFilePath } from './utils';
-import { instrument } from '../instrumentation/instrument';
+import { instrument } from '../instrumentation';
 import { notifyFileModified } from './utils'; // Assuming this function exists in utils.ts
 
 const schema = z.object({

@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { makeFilePath } from './utils';
-import { instrument } from '../instrumentation/instrument';
+import { instrument } from '../instrumentation';
 
 const schema = z.object({
     fname: z.string().describe("The filename to read"),

@@ -1,52 +1,52 @@
-import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { ChatAnthropic } from '@langchain/anthropic';
-import { ChatOpenAI } from '@langchain/openai';
-import { ChatOllama } from '@langchain/community/chat_models/ollama';
-import { ChatFireworks } from '@langchain/community/chat_models/fireworks';
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 
-type ChatModelConstructor = (modelName: string, extraFlags: Record<string, string | boolean> | null) => BaseChatModel;
+// Assuming ChatModelConstructor is defined elsewhere
+import { ChatModelConstructor, getModelServiceCtor } from './registry';
 
-function constructAnthropic(modelName: string, extraFlags: Record<string, string | boolean> | null): BaseChatModel {
-    if (!modelName) {
-        modelName = "claude-3-sonnet-20240229";
-    }
-    return new ChatAnthropic({ modelName, ...(extraFlags && { defaultHeaders: extraFlags }) });
-}
-
-function constructOpenAI(modelName: string, extraFlags: Record<string, string | boolean> | null): BaseChatModel {
-    if (!modelName) {
-        modelName = "gpt-4-turbo-preview";
-    }
-    return new ChatOpenAI({ modelName, ...(extraFlags && { defaultHeaders: extraFlags }) });
-}
-
-function constructOllama(modelName: string, extraFlags: Record<string, string | boolean> | null): BaseChatModel {
-    return new ChatOllama({ model: modelName });
-}
-
-function constructFireworks(modelName: string, extraFlags: Record<string, string | boolean> | null): BaseChatModel {
-    return new ChatFireworks({ modelName, ...(extraFlags && { defaultHeaders: extraFlags }) });
-}
-
-const registry: Record<string, ChatModelConstructor> = {
-    "anthropic": constructAnthropic,
-    "openai": constructOpenAI,
-    "ollama": constructOllama,
-    "fireworks": constructFireworks,
-};
-
-function getModelServiceCtor(modelService: string): ChatModelConstructor {
-    const constructor = registry[modelService];
-    if (!constructor) {
-        throw new Error(`Unknown model service: ${modelService}`);
-    }
-    return constructor;
-}
-
+// MSN is similar to a DSN ("Data Source Name" used to identify databases) to specify a model api service,
+// a model name/variant, and any extra flags.
+//
+// syntax is: service[/model[/flags]]
+//
+// where flags is a comma separated list of key=value pairs
 class MSN {
-    static fromString(msnStr: string): ChatModelConstructor {
-        return getModelServiceCtor(msnStr);
+    constructor(
+        public chatModelCtor: ChatModelConstructor,
+        public modelName: string,
+        public flags: Record<string, string>
+    ) {}
+
+    static fromString(msnStr: string): MSN {
+        const splitMsn = msnStr.split("/", 3);
+        const splitLen = splitMsn.length;
+
+        if (splitLen < 2) {
+            throw new Error(`MSN must have at least a service and model name: ${msnStr}`);
+        }
+
+        const chatModelCtor = getModelServiceCtor(splitMsn[0]);
+        const modelName = splitMsn[1];
+        const flags = splitLen >= 3 ? parseFlags(splitMsn[2], msnStr) : {};
+
+        return new MSN(chatModelCtor, modelName, flags);
+    }
+
+    constructModel(): BaseChatModel {
+        return this.chatModelCtor(this.modelName, this.flags);
     }
 }
 
-export { getModelServiceCtor, ChatModelConstructor, MSN };
+function parseFlags(flags: string, sourceMsnStr: string): Record<string, string> {
+    // parse the flags into a dict based on k=v pairs (split on the first `=`).
+    const flagsDict: Record<string, string> = {};
+    for (const flag of flags.split(",")) {
+        const [k, v] = flag.split("=", 2);
+        if (v === undefined) {
+            throw new Error(`MSN flag ${k} must have a value: ${sourceMsnStr}`);
+        }
+        flagsDict[k] = v;
+    }
+    return flagsDict;
+}
+
+export { MSN, parseFlags };

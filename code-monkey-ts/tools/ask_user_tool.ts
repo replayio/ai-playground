@@ -1,7 +1,7 @@
 import * as readline from 'readline';
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { instrument } from '../instrumentation/instrument';
+import { instrument } from '../instrumentation';
 
 const askUser = async (prompt: string): Promise<string> => {
     const rl = readline.createInterface({
