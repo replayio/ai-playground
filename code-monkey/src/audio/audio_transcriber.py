@@ -1,4 +1,3 @@
-import logging
 import os
 import json
 import time
@@ -12,8 +11,8 @@ from google.auth.exceptions import DefaultCredentialsError
 from pyasn1.error import PyAsn1Error
 from audio_recording import AudioRecording
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+from util.logs import get_logger
+logger = get_logger(__name__)
 
 
 class AudioTranscriber:

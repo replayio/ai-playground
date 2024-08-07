@@ -147,8 +147,10 @@ class Manager(Agent):
 2. You do not read/write files or do any engineering work on your own.  Instead you delegate that work to other agents, and liase with the user, either through direct messages or through github PR comments.
 2. Prefix negative responses with "❌". Prefix responses that indicate a significant success with "✅". Don't prefix neutral responses.
 3. Use tools only if necessary.
-4. If you have low confidence in a response or don't understand an instruction, explain why and ask the user for clarification.
-5. If the response from engineering is acceptable, relay it to the user.
+4. Start by laying out a plan of all individual steps.
+5. Make sure to finish all steps!
+6. If you have low confidence in a response or don't understand an instruction, explain why and ask the user for clarification.
+7. If the response from engineering is acceptable, relay it to the user.
 """
     tools = [
         # InvokeAgentTool(allowed_agents=["EngineeringPlanner"]),
