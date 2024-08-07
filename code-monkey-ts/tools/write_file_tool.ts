@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
+import { tool } from "@langchain/core/tools";
+import { z } from "zod";
 
 const writeFile = promisify(fs.writeFile);
 
@@ -9,7 +11,7 @@ interface WriteFileResult {
     message: string;
 }
 
-async function writeFileTool(filePath: string, content: string): Promise<WriteFileResult> {
+async function writeFileImpl(filePath: string, content: string): Promise<WriteFileResult> {
     try {
         const absolutePath = path.resolve(filePath);
         await writeFile(absolutePath, content, 'utf8');
@@ -25,7 +27,22 @@ async function writeFileTool(filePath: string, content: string): Promise<WriteFi
     }
 }
 
-export { writeFileTool, WriteFileResult };
+const schema = z.object({
+    filePath: z.string().describe("The path to the file to write"),
+    content: z.string().describe("The content to write to the file")
+});
+
+export const writeFileTool = tool(
+    async ({ filePath, content }: z.infer<typeof schema>) => {
+        const result = await writeFileImpl(filePath, content);
+        return JSON.stringify(result);
+    },
+    {
+        name: "write_file",
+        description: "Write content to a file at the specified path",
+        schema: schema,
+    }
+);
 
 // Main execution
 if (require.main === module) {
@@ -36,7 +53,7 @@ if (require.main === module) {
         }
 
         const [, , filePath, content] = process.argv;
-        const result = await writeFileTool(filePath, content);
+        const result = await writeFileImpl(filePath, content);
         console.log(result.message);
         process.exit(result.success ? 0 : 1);
     })();

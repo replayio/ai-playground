@@ -64,6 +64,16 @@ class CodeContext:
         return self.known_files
 
 
+defaultCodeContext: CodeContext | None = None
+
+def getDefaultCodeContext() -> CodeContext:
+    global defaultCodeContext
+    if defaultCodeContext is None:
+        defaultCodeContext = CodeContext()
+        defaultCodeContext.copy_src()
+    return defaultCodeContext
+
+
 if __name__ == "__main__":
     for file in get_all_src_files():
         print(file)

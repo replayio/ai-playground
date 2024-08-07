@@ -25,6 +25,16 @@ class InvokeAgentTool(BaseTool):
     description: str = "Invokes another agent by name and runs it with a given prompt"
     args_schema: Type[BaseModel] = InvokeAgentInput
     allowed_agents: List[str]
+    
+    def __init__(self, allowed_agents: List[str], **kwargs):
+        super().__init__(
+            name="invoke_agent",
+            description=f"Invokes the any of the following agents by name with a given prompt: {str(allowed_agents)}",
+            args_schema=InvokeAgentInput,
+            allowed_agents=allowed_agents,
+            **kwargs
+        )
+        print(f"DDBG InvokeAgentTool: {self.description}")
 
     @instrument(
         "Tool._run", ["agent_name", "prompt"], attributes={"tool": "InvokeAgentInput"}
