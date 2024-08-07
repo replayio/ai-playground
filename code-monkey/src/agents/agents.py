@@ -17,27 +17,12 @@ from tools import (
     CAASTAnalyzerTool,
     CADependencyGraphTool,
 )
-from code_context import CodeContext
+from code_context import CodeContext, getDefaultCodeContext
 from .agent import Agent
 from constants import load_environment, get_root_dir
 from instrumentation import initialize_tracer, instrument
 from util.logs import setup_logging
 
-
-class Manager(Agent):
-    name = "Manager"
-    SYSTEM_PROMPT = """
-1. You are the manager, a high-level agent capable of delegating tasks and coordinating other agents.
-2. You do not read/write files or do any engineering work on your own.  Instead you delegate that work to other agents, and liase with the user, either through direct messages or through github PR comments.
-2. Prefix negative responses with "❌". Prefix responses that indicate a significant success with "✅". Don't prefix neutral responses.
-3. Use tools only if necessary.
-4. If you have low confidence in a response or don't understand an instruction, explain why and ask the user for clarification.
-5. If the response from engineering is acceptable, relay it to the user.
-"""
-    tools = [
-        InvokeAgentTool(allowed_agents=["EngineeringPlanner"]),
-        AskUserTool(),
-    ]
 
 
 class EngineeringPlanner(Agent):
@@ -112,10 +97,7 @@ class Coder(Agent):
     ]
 
     def initialize(self):
-        code_context = CodeContext()
-        code_context.copy_src()
-
-        self.set_context(code_context)
+        self.set_context(getDefaultCodeContext())
 
     def set_context(self, context: CodeContext):
         self.context = context
@@ -145,9 +127,7 @@ class Debugger(Agent):
     ]
 
     def initialize(self):
-        code_context = CodeContext()
-        code_context.copy_src()
-        self.set_context(code_context)
+        self.set_context(getDefaultCodeContext())
 
     def set_context(self, context: CodeContext):
         self.context = context
@@ -156,6 +136,38 @@ class Debugger(Agent):
         # TODO: known_files cost several hundred tokens for a small project.
         return f"""
 These are all files: {self.context.known_files}.
+Query: {prompt.strip()}
+    """.strip()
+
+
+class Manager(Agent):
+    name = "Manager"
+    SYSTEM_PROMPT = """
+1. You are the manager, a high-level agent capable of delegating tasks and coordinating other agents.
+2. You do not read/write files or do any engineering work on your own.  Instead you delegate that work to other agents, and liase with the user, either through direct messages or through github PR comments.
+2. Prefix negative responses with "❌". Prefix responses that indicate a significant success with "✅". Don't prefix neutral responses.
+3. Use tools only if necessary.
+4. Start by laying out a plan of all individual steps.
+5. Make sure to finish all steps!
+6. If you have low confidence in a response or don't understand an instruction, explain why and ask the user for clarification.
+7. If the response from engineering is acceptable, relay it to the user.
+"""
+    tools = [
+        # InvokeAgentTool(allowed_agents=["EngineeringPlanner"]),
+        InvokeAgentTool(allowed_agents=["Coder"]),
+        AskUserTool(),
+    ]
+
+    def initialize(self):
+        self.set_context(getDefaultCodeContext())
+
+    def set_context(self, context: CodeContext):
+        self.context = context
+
+    def prepare_prompt(self, prompt: str) -> str:
+        # TODO: known_files cost several hundred tokens for a small project.
+        return f"""
+These are all files: `[{self.context.known_files}]`.
 Query: {prompt.strip()}
     """.strip()
 

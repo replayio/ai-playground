@@ -13,7 +13,7 @@ from .base_agent import BaseAgent
 from instrumentation import current_span, instrument
 from langgraph.checkpoint.aiosqlite import AsyncSqliteSaver
 
-import logging
+from util.logs import get_logger
 
 class Agent(BaseAgent):
     # trying to figure out how to type this.  It's not a BaseChatModel, it's a
@@ -48,14 +48,16 @@ class Agent(BaseAgent):
 
     @instrument("Agent.run_prompt", ["prompt"])
     async def run_prompt(self, prompt: str) -> str:
-        logger = logging.getLogger(__name__)
+        logger = get_logger(__name__)
         logger.info(f"Running prompt: {prompt}")
 
         system = SystemMessage(content=self.get_system_prompt())
         msg = HumanMessage(content=self.prepare_prompt(prompt))
 
         modified_files: Set[str] = set()
-        logger = logging.getLogger(__name__)
+        logger = get_logger(__name__)
+        
+        result: str | None = None
 
         async for event in self.model.astream_events(
             {
@@ -65,7 +67,10 @@ class Agent(BaseAgent):
             version="v2",
         ):
             kind = event["event"]
-            logger.debug(f"Agent received event: {kind}")
+
+            if kind != "on_chat_model_stream" and kind != "on_chain_end" and kind != "on_chain_stream" and kind != "on_chain_start":
+                logger.debug(f"[AGENT {self.name}] received event: {kind}")
+
             if kind == "on_chat_model_start":
                 # for msg in event["data"]["input"]["messages"][0]:
                 #     print("----")
@@ -79,31 +84,26 @@ class Agent(BaseAgent):
                 continue
 
             if kind == "on_tool_start":
-                logger.debug("----")
                 tool_name = event["name"]
                 tool_input = event["data"]["input"]
-                logger.debug("tool start:")
-                logger.debug(f"      name: {tool_name}")
-                logger.debug(f"     input: {repr(tool_input)}")
+                logger.debug(f"tool start - name={tool_name}, input={repr(tool_input)}")
                 continue
 
             if kind == "on_tool_end":
                 logger.debug("----")
                 tool_name = event["name"]
                 tool_output = event["data"]["output"].content[:20]
-                logger.debug("tool end:")
-                logger.debug(f"    name: {tool_name}")
-                logger.debug(f"  output: {repr(tool_output)}")
+                logger.debug(f"[AGENT {self.name}] tool end - name={tool_name}, output={repr(tool_output)}")
                 continue
 
             if kind == "on_chat_model_end":
-                logger.debug("----")
-                # anthropic seems give us content as a list?
                 if isinstance(event["data"]["output"].content, list):
-                    print(event["data"]["output"].content[0]["text"])
+                    # anthropic seems give us content as a list?
+                    result = event["data"]["output"].content[0]["text"]
                 else:
-                    print(event["data"]["output"].content)
-                # TODO(toshok) still need to accumulate tokens
+                    result = event["data"]["output"].content
+                print(f"[AGENT {self.name}]" + result)
+                # TODO(toshok) still need to compute tokens
                 continue
 
             if kind == "on_custom_event":
@@ -111,6 +111,8 @@ class Agent(BaseAgent):
                 # there's only one event type currently
                 if event["name"] == "file_modified":
                     modified_files.add(event["data"])
+                else:
+                    logger.debug(f"[AGENT {self.name}] Unknown prompt event: '{event["name"]}'")
                 continue
 
         self.handle_completion(
@@ -118,7 +120,8 @@ class Agent(BaseAgent):
         )
 
         # TODO(toshok) we aren't returning a result here, and likely should...
-        return ""  # just to quiet pyright
+        logger.debug(f"[AGENT {self.name}] run_prompt result: \"{result or ""}\"")
+        return result or ""
 
     @instrument("Agent.handle_completion")
     def handle_completion(self, modified_files: set) -> None:

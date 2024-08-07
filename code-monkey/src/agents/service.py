@@ -1,12 +1,13 @@
 # Wraps an agent in an asyncio loop and runs it.  Creates two queues for the agent to use for input and output.
 
 import asyncio
-import logging
 from typing import Dict, Any
 
 from agents.agent import Agent
 from agents.agents import agents_by_name
 from agents.typed_queue import TypedQueue
+
+from util.logs import get_logger
 
 type JSONDict = Dict[str, Any]
 
@@ -31,13 +32,14 @@ class AgentService:
         return await self.request_queue.get()
 
     async def send_receive(self):
+        logger = get_logger(__name__)
         while True:
             data = await self._receive()
             # assume that we're always getting a { "prompt": "..." } object, and that we're always returning a { "response": "..." } object
-            logging.info(f"Agent {self.agent.name} received prompt: {data['prompt']}")
+            logger.info(f"[Agent {self.agent.name}] received prompt: {data['prompt']}")
             response = await self.agent.run_prompt(data["prompt"])
 
-            logging.info(f"Agent {self.agent.name} responding with: {response}")
+            logger.info(f"[Agent {self.agent.name}] responding with: {response}")
             await self._send({"response": response})
 
     def run(self):

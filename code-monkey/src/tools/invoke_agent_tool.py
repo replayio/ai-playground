@@ -9,6 +9,7 @@ from langchain_core.callbacks import (
     dispatch_custom_event,
 )
 from instrumentation import instrument
+from util.logs import get_logger
 
 
 class InvokeAgentInput(BaseModel):
@@ -25,6 +26,15 @@ class InvokeAgentTool(BaseTool):
     description: str = "Invokes another agent by name and runs it with a given prompt"
     args_schema: Type[BaseModel] = InvokeAgentInput
     allowed_agents: List[str]
+    
+    def __init__(self, allowed_agents: List[str], **kwargs):
+        super().__init__(
+            name="invoke_agent",
+            description=f"Invokes the any of the following agents by name with a given prompt: {str(allowed_agents)}",
+            args_schema=InvokeAgentInput,
+            allowed_agents=allowed_agents,
+            **kwargs
+        )
 
     @instrument(
         "Tool._run", ["agent_name", "prompt"], attributes={"tool": "InvokeAgentInput"}
@@ -42,7 +52,8 @@ class InvokeAgentTool(BaseTool):
         agent_name: str,
         prompt: str,
         run_manager: Optional[AsyncCallbackManagerForToolRun],
-    ) -> None:
+    ) -> str:
+        logger = get_logger(__name__)
         try:
             from agents.service import services_by_agent_name
 
@@ -58,8 +69,11 @@ class InvokeAgentTool(BaseTool):
 
             # emit a custom event with the response
             dispatch_custom_event("agent_response", response)
-        except Exception:
-            logging.error("Failed to invoke agent: %s", agent_name)
+            
+            logger.debug(f"[invoke_agent TOOL] Successfully invoked agent '{agent_name}' and received a response: {str(response)}")
+            return f"Successfully invoked agent '{agent_name}' and received a response: {str(response)}"
+        except Exception as err:
+            error_message = f"Failed to invoke agent '{agent_name}': {str(err)}"
+            logging.error(error_message)
             traceback.print_exc()
-            # Re-raise the exception
-            raise
+            return error_message
