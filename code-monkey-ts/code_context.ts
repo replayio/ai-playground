@@ -2,11 +2,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as shutil from 'fs-extra';
 import ignore from 'ignore';
-import { getArtifactsDir, getRootDir } from './src/constants';
+import { getArtifactsDir } from './src/constants';
 
 function getAllSrcFiles(): string[] {
-    const srcFiles: string[] = [];
-    const rootDir: string = getRootDir();
+    const rootDir: string = process.cwd();
 
     // Read .gitignore patterns
     let gitignorePatterns: string[] = [".git"];
@@ -16,9 +15,7 @@ function getAllSrcFiles(): string[] {
         const dirPath: string = path.resolve(__dirname, ...Array(i).fill('..'));
         const gitignorePath: string = path.join(dirPath, ".gitignore");
 
-        console.debug(`checking gitignore path ${gitignorePath}`);
         if (fs.existsSync(gitignorePath)) {
-            console.debug("   found it");
             const gitignoreContent: string = fs.readFileSync(gitignorePath, 'utf-8');
             gitignorePatterns = gitignorePatterns.concat(gitignoreContent.split('\n'));
         }
@@ -37,7 +34,7 @@ function getAllSrcFiles(): string[] {
             if (fs.statSync(dirFile).isDirectory()) {
                 filelist = walkSync(dirFile, filelist);
             } else {
-                const relPath = path.relative(getRootDir(), dirFile);
+                const relPath = path.relative(rootDir, dirFile);
                 if (!ignoreSpec.ignores(relPath)) {
                     filelist.push(relPath);
                 }
@@ -46,7 +43,7 @@ function getAllSrcFiles(): string[] {
         return filelist;
     };
 
-    return walkSync(getRootDir());
+    return walkSync(rootDir);
 }
 
 export class CodeContext {
@@ -66,7 +63,7 @@ export class CodeContext {
         const filesToCopy: string[] = getAllSrcFiles();
 
         for (const relPath of filesToCopy) {
-            const srcPath: string = path.join(getRootDir(), relPath);
+            const srcPath: string = path.join(process.cwd(), relPath);
             const destPath: string = path.join(destDir, relPath);
             fs.mkdirSync(path.dirname(destPath), { recursive: true });
             shutil.copySync(srcPath, destPath);
@@ -78,7 +75,7 @@ export class CodeContext {
 }
 
 if (require.main === module) {
-    for (const file of getAllSrcFiles()) {
-        console.log(file);
-    }
+    getAllSrcFiles().forEach((file) => {
+        // File list processing can be done here if needed
+    });
 }
