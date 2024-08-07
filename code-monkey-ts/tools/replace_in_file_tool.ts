@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
+import { tool } from "@langchain/core/tools";
+import { z } from "zod";
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -36,7 +38,23 @@ async function replaceInFile(filePath: string, oldText: string, newText: string)
     }
 }
 
-export { replaceInFile, ReplaceInFileResult };
+const schema = z.object({
+    filePath: z.string().describe("The path to the file to be modified"),
+    oldText: z.string().describe("The text to be replaced"),
+    newText: z.string().describe("The text to replace with"),
+});
+
+export const replaceInFileTool = tool(
+    async ({ filePath, oldText, newText }: z.infer<typeof schema>) => {
+        const result = await replaceInFile(filePath, oldText, newText);
+        return JSON.stringify(result);
+    },
+    {
+        name: "replace_in_file",
+        description: "Replace text in a file and return the result",
+        schema: schema,
+    }
+);
 
 // Main execution
 if (require.main === module) {

@@ -1,67 +1,43 @@
-import * as fs from 'fs';
+import { tool } from "@langchain/core/tools";
+import { z } from "zod";
 import * as path from 'path';
-import { promisify } from 'util';
-import { exec } from 'child_process';
+import { DependencyGraph } from '../deps';
+import { getArtifactsDir } from '../constants';
+import { instrument } from '../instrumentation';
 
-const readFile = promisify(fs.readFile);
-const execAsync = promisify(exec);
+const schema = z.object({
+    module_names: z.array(z.string()).describe("List of module names to get dependencies for"),
+});
 
-interface DependencyResult {
-    success: boolean;
-    dependencies?: string[];
-    error?: string;
-}
-
-async function getDependencies(filePath: string): Promise<DependencyResult> {
-    try {
-        const absolutePath = path.resolve(filePath);
-        const fileContent = await readFile(absolutePath, 'utf8');
-
-        // Use a simple regex to find import statements
-        const importRegex = /import\s+.*?from\s+['"](.+?)['"]/g;
-        const dependencies: string[] = [];
-        let match;
-
-        while ((match = importRegex.exec(fileContent)) !== null) {
-            dependencies.push(match[1]);
-        }
-
-        // Use pipreqs to get Python dependencies
-        const { stdout } = await execAsync(`pipreqs --print ${path.dirname(absolutePath)}`);
-        const pipDependencies = stdout.trim().split('\n');
-
-        return {
-            success: true,
-            dependencies: [...dependencies, ...pipDependencies],
-        };
-    } catch (error) {
-        return {
-            success: false,
-            error: error.message,
-        };
+export const getDependenciesTool = tool(
+    async ({ module_names }: z.infer<typeof schema>) => {
+        const modulePaths = module_names.map(module => path.join(getArtifactsDir(), `${module}.ts`));
+        const dependencyGraph = new DependencyGraph(modulePaths);
+        const dependencies = Object.fromEntries(
+            Object.entries(dependencyGraph.modules).map(([name, module]) => [
+                name,
+                module.dependencies.map(dep => dep.name)
+            ])
+        );
+        return JSON.stringify(dependencies);
+    },
+    {
+        name: "get_dependencies",
+        description: "Get the dependency graph for one or more TypeScript modules",
+        schema: schema,
     }
+);
+
+// Decorator for instrumentation
+function instrumentDecorator(target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+    const originalMethod = descriptor.value;
+    descriptor.value = function (...args: any[]) {
+        return instrument("Tool._run", { tool: "GetDependenciesTool" }, () => {
+            return originalMethod.apply(this, args);
+        });
+    };
+    return descriptor;
 }
 
-export { getDependencies, DependencyResult };
-
-// Main execution
-if (require.main === module) {
-    (async () => {
-        if (process.argv.length !== 3) {
-            console.error('Usage: node get_dependencies_tool.js <file_path>');
-            process.exit(1);
-        }
-
-        const [, , filePath] = process.argv;
-        const result = await getDependencies(filePath);
-
-        if (result.success) {
-            console.log('Dependencies:');
-            result.dependencies?.forEach(dep => console.log(dep));
-        } else {
-            console.error('Error:', result.error);
-        }
-
-        process.exit(result.success ? 0 : 1);
-    })();
-}
+// Apply the decorator to the tool function
+instrumentDecorator(getDependenciesTool, 'handler', Object.getOwnPropertyDescriptor(getDependenciesTool, 'handler')!);

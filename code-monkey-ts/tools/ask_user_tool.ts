@@ -1,15 +1,16 @@
 import * as readline from 'readline';
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
+import { instrument } from '../instrumentation/instrument';
 
-const askUser = async (question: string): Promise<string> => {
+const askUser = async (prompt: string): Promise<string> => {
     const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout
     });
 
     return new Promise((resolve) => {
-        rl.question(question + ' ', (answer) => {
+        rl.question(prompt + ' ', (answer) => {
             rl.close();
             resolve(answer.trim());
         });
@@ -17,13 +18,18 @@ const askUser = async (question: string): Promise<string> => {
 };
 
 const schema = z.object({
-    question: z.string().describe("The question to ask the user"),
+    prompt: z.string().describe("The prompt to show the user"),
 });
 
 export const askUserTool = tool(
-    async ({ question }: z.infer<typeof schema>) => {
-        return await askUser(question);
-    },
+    instrument(
+        async ({ prompt }: z.infer<typeof schema>) => {
+            return await askUser(prompt);
+        },
+        "Tool._run",
+        ["prompt"],
+        { attributes: { tool: "AskUserTool" } }
+    ),
     {
         name: "ask_user",
         description: "Ask the user a question and return their response",

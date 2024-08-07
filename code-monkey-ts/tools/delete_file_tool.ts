@@ -1,43 +1,37 @@
 import * as fs from 'fs';
-import * as path from 'path';
-import { promisify } from 'util';
+import { z } from "zod";
+import { tool } from "@langchain/core/tools";
+import { makeFilePath } from './utils';
+import { instrument } from '../instrumentation/instrument';
+import { notifyFileModified } from './io_tool';
 
-const unlink = promisify(fs.unlink);
+const schema = z.object({
+    fname: z.string().describe("Name of the file to delete.")
+});
 
-interface DeleteFileResult {
-    success: boolean;
-    message: string;
-}
+export const deleteFileTool = tool(
+    async ({ fname }: z.infer<typeof schema>) => {
+        const filePath = makeFilePath(fname);
 
-async function deleteFile(filePath: string): Promise<DeleteFileResult> {
-    try {
-        const absolutePath = path.resolve(filePath);
-        await unlink(absolutePath);
-        return {
-            success: true,
-            message: `File ${filePath} deleted successfully.`,
-        };
-    } catch (error) {
-        return {
-            success: false,
-            message: `Error deleting file ${filePath}: ${error.message}`,
-        };
-    }
-}
-
-export { deleteFile, DeleteFileResult };
-
-// Main execution
-if (require.main === module) {
-    (async () => {
-        if (process.argv.length !== 3) {
-            console.error('Usage: node delete_file_tool.js <file_path>');
-            process.exit(1);
+        if (!fs.existsSync(filePath)) {
+            throw new Error(`The file ${fname} does not exist.`);
         }
 
-        const [, , filePath] = process.argv;
-        const result = await deleteFile(filePath);
-        console.log(result.message);
-        process.exit(result.success ? 0 : 1);
-    })();
-}
+        fs.unlinkSync(filePath);
+        notifyFileModified(fname);
+        return null;
+    },
+    {
+        name: "delete_file",
+        description: "Delete a file by name",
+        schema: schema,
+    }
+);
+
+// Wrap the tool with instrumentation
+export const instrumentedDeleteFileTool = instrument(
+    deleteFileTool,
+    "Tool._run",
+    ["fname"],
+    { attributes: { tool: "DeleteFileTool" } }
+);

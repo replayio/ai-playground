@@ -1,92 +1,60 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { promisify } from 'util';
-import { exec } from 'child_process';
-import { z } from 'zod';
-import { StructuredTool, ToolParams } from '@langchain/core/tools';
-import { CallbackManagerForToolRun } from '@langchain/core/callbacks/manager';
-import { instrument } from '../instrumentation';
+import { z } from "zod";
+import { tool } from "@langchain/core/tools";
+import { CallbackManagerForToolRun } from "@langchain/core/callbacks";
+import { instrument } from "../instrumentation/instrument";
+import { getLogger } from "../utils/logger";
+import { dispatchCustomEvent } from "../utils/agent_utils";
 
-const writeFile = promisify(fs.writeFile);
-const execAsync = promisify(exec);
+// Assuming these imports exist in TypeScript version
+import { ServicesByAgentName } from "../agents/service";
 
-const InvokeAgentSchema = z.object({
-    agentName: z.string().describe("Name of the agent to invoke"),
-    agentInput: z.string().describe("Input for the agent")
+const schema = z.object({
+    agent_name: z.string().describe("Name of the agent to invoke"),
+    prompt: z.string().describe("Prompt to run with the agent"),
 });
 
-type InvokeAgentInput = z.infer<typeof InvokeAgentSchema>;
-
-export class InvokeAgentTool extends StructuredTool<typeof InvokeAgentSchema> {
-    name = "invoke_agent" as const;
-    description = "Invokes another agent by name and runs it with a given input";
-    schema = InvokeAgentSchema;
-
-    constructor(fields?: Partial<ToolParams>) {
-        super(fields);
-    }
-
-    protected async _call(
-        input: InvokeAgentInput,
-        runManager?: CallbackManagerForToolRun
-    ): Promise<string> {
-        const { agentName, agentInput } = input;
+export const invokeAgentTool = tool(
+    async ({ agent_name, prompt }: z.infer<typeof schema>, runManager?: CallbackManagerForToolRun) => {
+        const logger = getLogger(__filename);
         try {
-            // Write input to a temporary file
-            const tempInputFile = path.join(__dirname, 'temp_input.txt');
-            await writeFile(tempInputFile, agentInput, 'utf8');
+            // Assuming allowed_agents is defined somewhere in your TypeScript code
+            const allowed_agents = ["agent1", "agent2", "agent3"]; // Replace with actual allowed agents
 
-            // Execute the agent
-            const command = `python -m code_monkey.main ${agentName} ${tempInputFile}`;
-            const { stdout, stderr } = await execAsync(command);
-
-            // Clean up temporary file
-            fs.unlinkSync(tempInputFile);
-
-            if (stderr) {
-                throw new Error(stderr);
+            if (!allowed_agents.includes(agent_name)) {
+                throw new Error(`Agent '${agent_name}' not found or not allowed.`);
             }
 
-            return stdout.trim();
-        } catch (error) {
-            throw new Error(`Failed to invoke agent: ${(error as Error).message}`);
+            const service = ServicesByAgentName[agent_name];
+
+            // send a prompt, then wait for a response
+            await service.sendTo({ prompt: prompt });
+
+            const response = await service.receiveFrom();
+
+            // emit a custom event with the response
+            dispatchCustomEvent("agent_response", response);
+            
+            logger.debug(`[invoke_agent TOOL] Successfully invoked agent '${agent_name}' and received a response: ${JSON.stringify(response)}`);
+            return `Successfully invoked agent '${agent_name}' and received a response: ${JSON.stringify(response)}`;
+        } catch (err) {
+            const error_message = `Failed to invoke agent '${agent_name}': ${err instanceof Error ? err.message : String(err)}`;
+            logger.error(error_message);
+            console.trace(err);
+            return error_message;
         }
+    },
+    {
+        name: "invoke_agent",
+        description: "Invokes another agent by name and runs it with a given prompt",
+        schema: schema,
     }
-}
+);
 
-export const invokeAgentTool = new InvokeAgentTool();
+// Decorator for instrumentation
+const instrumentedInvokeAgentTool = instrument(
+    "Tool._run",
+    ["agent_name", "prompt"],
+    { attributes: { tool: "InvokeAgentInput" } }
+)(invokeAgentTool);
 
-// Instrumentation
-// TODO: Re-enable instrumentation once type issues are resolved
-// const instrumentedCall = instrument(
-//   "Tool._call",
-//   ["agentName", "agentInput"],
-//   { attributes: { tool: "InvokeAgentTool" } }
-// )(InvokeAgentTool.prototype._call);
-
-// InvokeAgentTool.prototype._call = function(this: InvokeAgentTool, ...args: Parameters<typeof instrumentedCall>) {
-//     return instrumentedCall.apply(this, args);
-// };
-
-// Main execution
-if (require.main === module) {
-    (async () => {
-        if (process.argv.length !== 4) {
-            console.error('Usage: ts-node invoke_agent_tool.ts <agent_name> <input>');
-            process.exit(1);
-        }
-
-        const [, , agentName, agentInput] = process.argv;
-        try {
-            const result = await invokeAgentTool.call({
-                agentName,
-                agentInput
-            });
-            console.log('Agent output:');
-            console.log(result);
-        } catch (error) {
-            console.error('Error:', (error as Error).message);
-            process.exit(1);
-        }
-    })();
-}
+export { instrumentedInvokeAgentTool as invokeAgentTool };

@@ -1,51 +1,47 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { promisify } from 'util';
+import { tool } from "@langchain/core/tools";
+import { z } from "zod";
+import { makeFilePath } from './utils';
+import { instrument } from '../instrumentation/instrument';
+import { notifyFileModified } from './utils'; // Assuming this function exists in utils.ts
 
-const writeFile = promisify(fs.writeFile);
-const mkdir = promisify(fs.mkdir);
+const schema = z.object({
+    fname: z.string().describe("Name of the file to create."),
+    content: z.string().optional().describe("Initial content of the file (optional)."),
+});
 
-interface CreateFileResult {
-    success: boolean;
-    message: string;
-}
+export const createFileTool = tool(
+    async ({ fname, content }: z.infer<typeof schema>) => {
+        const filePath = makeFilePath(fname);
+        
+        try {
+            await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+            
+            if (content !== undefined) {
+                await fs.promises.writeFile(filePath, content, { flag: 'wx' });
+            } else {
+                await fs.promises.writeFile(filePath, '', { flag: 'wx' });
+            }
 
-async function createFileTool(filePath: string, content: string): Promise<CreateFileResult> {
-    try {
-        const absolutePath = path.resolve(filePath);
-        const dirPath = path.dirname(absolutePath);
-
-        // Create directory if it doesn't exist
-        await mkdir(dirPath, { recursive: true });
-
-        // Write file content
-        await writeFile(absolutePath, content, 'utf8');
-
-        return {
-            success: true,
-            message: 'File created successfully.',
-        };
-    } catch (error) {
-        return {
-            success: false,
-            message: `Error: ${error.message}`,
-        };
-    }
-}
-
-export { createFileTool, CreateFileResult };
-
-// Main execution
-if (require.main === module) {
-    (async () => {
-        if (process.argv.length !== 4) {
-            console.error('Usage: node create_file_tool.js <file_path> <content>');
-            process.exit(1);
+            notifyFileModified(fname);
+            return `File ${fname} created successfully.`;
+        } catch (error) {
+            console.error(`Failed to create file: ${filePath}`);
+            console.error(error);
+            throw error;
         }
+    },
+    {
+        name: "create_file",
+        description: "Create a new file with optional content",
+        schema: schema,
+    }
+);
 
-        const [, , filePath, content] = process.argv;
-        const result = await createFileTool(filePath, content);
-        console.log(result.message);
-        process.exit(result.success ? 0 : 1);
-    })();
-}
+// Wrap the tool with instrumentation
+export const instrumentedCreateFileTool = instrument(
+    createFileTool,
+    ['fname', 'content'],
+    { tool: "CreateFileTool" }
+);

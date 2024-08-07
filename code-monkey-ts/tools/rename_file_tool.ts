@@ -1,33 +1,40 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
+import { tool } from "@langchain/core/tools";
+import { z } from "zod";
 
 const renameFile = promisify(fs.rename);
 
-interface RenameFileResult {
-    success: boolean;
-    message: string;
-}
+const schema = z.object({
+    oldPath: z.string().describe("The current path of the file to be renamed"),
+    newPath: z.string().describe("The new path/name for the file"),
+});
 
-async function renameFileTool(oldPath: string, newPath: string): Promise<RenameFileResult> {
-    try {
-        const absoluteOldPath = path.resolve(oldPath);
-        const absoluteNewPath = path.resolve(newPath);
+export const renameFileTool = tool(
+    async ({ oldPath, newPath }: z.infer<typeof schema>) => {
+        try {
+            const absoluteOldPath = path.resolve(oldPath);
+            const absoluteNewPath = path.resolve(newPath);
 
-        await renameFile(absoluteOldPath, absoluteNewPath);
-        return {
-            success: true,
-            message: 'File renamed successfully.',
-        };
-    } catch (error) {
-        return {
-            success: false,
-            message: `Error: ${error.message}`,
-        };
+            await renameFile(absoluteOldPath, absoluteNewPath);
+            return {
+                success: true,
+                message: 'File renamed successfully.',
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: `Error: ${(error as Error).message}`,
+            };
+        }
+    },
+    {
+        name: "rename_file",
+        description: "Rename a file from old path to new path",
+        schema: schema,
     }
-}
-
-export { renameFileTool, RenameFileResult };
+);
 
 // Main execution
 if (require.main === module) {
@@ -38,7 +45,7 @@ if (require.main === module) {
         }
 
         const [, , oldPath, newPath] = process.argv;
-        const result = await renameFileTool(oldPath, newPath);
+        const result = await renameFileTool.invoke({ oldPath, newPath });
         console.log(result.message);
         process.exit(result.success ? 0 : 1);
     })();
