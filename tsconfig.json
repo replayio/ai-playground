@@ -11,12 +11,12 @@
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
-      "*": ["node_modules/*", "src/types/*"]
+      "*": ["node_modules/*", "code-monkey-ts/node_modules"]
     },
     "types": ["jest", "node"],
     "downlevelIteration": true,
     "noEmit": true
   },
-  "include": ["src/**/*"],
+  "include": ["code-monkey-ts/**/*"],
   "exclude": ["node_modules", "dist", "jest.config.js"]
 }

@@ -1,43 +1,48 @@
-import { promises as fs } from 'fs';
-import { z } from 'zod';
-import { tool } from '@langchain/core/tools';
-import { CallbackManagerForToolRun } from '@langchain/core/callbacks/manager';
-import { makeFilePath } from './utils';
-import { instrument } from '../instrumentation';
+import * as fs from 'fs';
+import * as path from 'path';
+import { promisify } from 'util';
 
-const ReadFileToolInputSchema = z.object({
-  fname: z.string().describe("The name of the file to read")
-});
+const readFile = promisify(fs.readFile);
 
-type ReadFileToolInput = z.infer<typeof ReadFileToolInputSchema>;
+interface ReadFileResult {
+    success: boolean;
+    content?: string;
+    message?: string;
+}
 
-export const readFileTool = tool({
-  name: "read_file",
-  description: "Read the contents of the file of given name",
-  schema: ReadFileToolInputSchema,
-  func: async (
-    { fname }: ReadFileToolInput,
-    runManager?: CallbackManagerForToolRun
-  ): Promise<string> => {
-    const filePath: string = makeFilePath(fname);
+async function readFileContent(filePath: string): Promise<ReadFileResult> {
     try {
-      const content: string = await fs.readFile(filePath, 'utf-8');
-      return content;
+        const absolutePath = path.resolve(filePath);
+        const fileContent = await readFile(absolutePath, 'utf8');
+        return {
+            success: true,
+            content: fileContent,
+        };
     } catch (error) {
-      console.error(`Failed to open file for reading: ${filePath}`);
-      console.error(error);
-      // Re-throw the error
-      throw error;
+        return {
+            success: false,
+            message: `Error: ${error.message}`,
+        };
     }
-  }
-});
+}
 
-// Wrapper function to apply the instrumentation decorator
-export const instrumentedReadFileTool = instrument(
-  "Tool.func",
-  ["fname"],
-  { attributes: { tool: "ReadFileTool" } }
-)(readFileTool.func);
+export { readFileContent, ReadFileResult };
 
-// You can use the instrumented version like this:
-// readFileTool.func = instrumentedReadFileTool;
+// Main execution
+if (require.main === module) {
+    (async () => {
+        if (process.argv.length !== 3) {
+            console.error('Usage: node read_file_tool.js <file_path>');
+            process.exit(1);
+        }
+
+        const [, , filePath] = process.argv;
+        const result = await readFileContent(filePath);
+        if (result.success) {
+            console.log(result.content);
+        } else {
+            console.error(result.message);
+        }
+        process.exit(result.success ? 0 : 1);
+    })();
+}

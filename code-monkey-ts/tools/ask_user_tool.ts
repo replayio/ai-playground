@@ -1,19 +1,23 @@
 import * as readline from 'readline';
 import { z } from 'zod';
-import { StructuredTool, ToolParams } from '@langchain/core/tools';
-import { CallbackManagerForToolRun } from '@langchain/core/callbacks/manager';
+import { Tool, ToolParams } from "@langchain/core/tools";
+import { CallbackManagerForToolRun } from "@langchain/core/callbacks/manager";
 import { instrument } from '../instrumentation';
 
 const AskUserSchema = z.object({
-    input: z.string().describe("The question to ask the user")
+    input: z.string().optional().describe("The question to ask the user")
+});
+
+const AskUserToolSchema = z.effect(AskUserSchema).transform((args) => {
+    return { input: args.input || "Please provide your input: " };
 });
 
 type AskUserInput = z.infer<typeof AskUserSchema>;
 
-export class AskUserTool extends StructuredTool<typeof AskUserSchema> {
-    name = "ask_user" as const;
+export class AskUserTool extends Tool {
+    name = "ask_user";
     description = "Ask the user a question and return their response";
-    schema = AskUserSchema;
+    schema = AskUserToolSchema;
 
     constructor(fields?: Partial<ToolParams>) {
         super(fields);
@@ -23,8 +27,8 @@ export class AskUserTool extends StructuredTool<typeof AskUserSchema> {
         return "AskUserTool";
     }
 
-    async _call(
-        { input: question }: AskUserInput,
+    protected async _call(
+        args: AskUserInput,
         runManager?: CallbackManagerForToolRun
     ): Promise<string> {
         const rl = readline.createInterface({
@@ -33,7 +37,7 @@ export class AskUserTool extends StructuredTool<typeof AskUserSchema> {
         });
 
         return new Promise((resolve) => {
-            rl.question(question + ' ', (answer) => {
+            rl.question(args.input + ' ', (answer) => {
                 rl.close();
                 resolve(answer.trim());
             });
@@ -59,7 +63,7 @@ if (require.main === module) {
 
         const [, , question] = process.argv;
         try {
-            const result = await askUserTool._call({ input: question });
+            const result = await askUserTool.call({ input: question });
             console.log('User response:', result);
         } catch (error) {
             console.error('Error:', (error as Error).message);

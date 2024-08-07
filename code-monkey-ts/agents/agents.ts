@@ -1,7 +1,6 @@
 import { Agent } from './agent';
 import { InvokeAgentTool } from '../tools/invoke_agent_tool';
 import { AskUserTool } from '../tools/ask_user_tool';
-import { instrument } from '../instrumentation/instrument';
 import { CodeContext } from '../code_context';
 import { Tool } from '@langchain/core/tools';
 

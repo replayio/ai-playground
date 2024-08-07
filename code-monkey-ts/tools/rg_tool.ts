@@ -1,70 +1,57 @@
-import { spawn } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
-import { z } from 'zod';
-import { CallbackManagerForToolRun } from '@langchain/core/callbacks/manager';
-import { tool } from '@langchain/core/tools';
-import { getArtifactsDir } from '../src/constants';
-import { instrument } from '../instrumentation';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
-const RgToolInputSchema = z.object({
-    pattern: z.string().describe("The pattern to search for.")
-});
+const execAsync = promisify(exec);
 
-type RgToolInput = z.infer<typeof RgToolInputSchema>;
+interface RgResult {
+    success: boolean;
+    output?: string;
+    error?: string;
+}
 
-class RgTool {
-    name = "rg";
-    description = "Search for a pattern in files within the artifacts folder using ripgrep";
-
-    async _run(
-        { pattern }: RgToolInput,
-        runManager?: CallbackManagerForToolRun
-    ): Promise<string> {
-        console.debug(`get_artifacts_dir(): ${getArtifactsDir()}`);
-        return this._searchWithRg(pattern);
-    }
-
-    private async _searchWithRg(pattern: string): Promise<string> {
-        const command = ["rg", "-i", "--no-heading", "--with-filename", "-r", pattern, "."];
-        console.debug(`Current working directory: ${process.cwd()}`);
-        console.debug(`Executing command: ${command.join(' ')}`);
-
-        return new Promise<string>((resolve, reject) => {
-            const rg = spawn('rg', command.slice(1), { cwd: getArtifactsDir() });
-            let stdout = '';
-            let stderr = '';
-
-            rg.stdout.on('data', (data) => {
-                stdout += data.toString();
-            });
-
-            rg.stderr.on('data', (data) => {
-                stderr += data.toString();
-            });
-
-            rg.on('close', (code) => {
-                console.debug(`Raw output: ${stdout}`);
-                if (code === 0) {
-                    resolve(stdout.trim() || "0 matches found.");
-                } else if (code === 1) {
-                    console.debug("No matches found");
-                    resolve("0 matches found.");
-                } else {
-                    console.error(`Error occurred: ${stderr}`);
-                    reject(new Error(`Error occurred: ${stderr}`));
-                }
-            });
-        });
+async function runRipgrep(pattern: string, path: string, flags: string[] = []): Promise<RgResult> {
+    const command = `rg ${flags.join(' ')} "${pattern}" "${path}"`;
+    
+    try {
+        const { stdout, stderr } = await execAsync(command);
+        return {
+            success: true,
+            output: stdout.trim(),
+        };
+    } catch (error) {
+        if (error.code === 1 && !error.stderr) {
+            // No matches found, but command executed successfully
+            return {
+                success: true,
+                output: '',
+            };
+        }
+        return {
+            success: false,
+            error: error.message,
+        };
     }
 }
 
-export const rgTool = tool({
-    name: "rg",
-    description: "Search for a pattern in files within the artifacts folder using ripgrep",
-    schema: RgToolInputSchema,
-    func: async (input: RgToolInput, runManager?: CallbackManagerForToolRun) => {
-        const tool = new RgTool();
-        return tool._run(input, runManager);
-    }
-});
+export { runRipgrep, RgResult };
+
+// Main execution
+if (require.main === module) {
+    (async () => {
+        if (process.argv.length < 4) {
+            console.error('Usage: node rg_tool.js <pattern> <path> [flags...]');
+            process.exit(1);
+        }
+
+        const [, , pattern, path, ...flags] = process.argv;
+        const result = await runRipgrep(pattern, path, flags);
+        
+        if (result.success) {
+            console.log(result.output);
+        } else {
+            console.error(result.error);
+        }
+        
+        process.exit(result.success ? 0 : 1);
+    })();
+}

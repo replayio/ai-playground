@@ -1,55 +1,57 @@
-import { z } from 'zod';
-import { AsyncCallbackManagerForToolRun } from '@langchain/core/callbacks/manager';
-import { tool } from '@langchain/core/tools';
-import { CATool } from './ca_tool';
-import { resolveFilePath, resolveModulePath, getModuleName } from '../deps';
-import { instrument } from '../../instrumentation';
+import * as fs from 'fs';
+import * as path from 'path';
+import { promisify } from 'util';
 
-const CAImportsToolInputSchema = z.object({
-    files: z.array(z.string()).nullable().describe("List of relative file paths to analyze"),
-    modules: z.array(z.string()).nullable().describe("List of modules to analyze")
-}).refine(data => data.files != null || data.modules != null, {
-    message: "Either 'files' or 'modules' must be provided"
-});
+const readFile = promisify(fs.readFile);
+const writeFile = promisify(fs.writeFile);
 
-type CAImportsToolInput = z.infer<typeof CAImportsToolInputSchema>;
+interface ImportResult {
+    success: boolean;
+    message: string;
+}
 
-export class CAImportsTool extends CATool {
-    name = "ca_analyze_imports";
-    description = "Analyze the imports in Python files";
+async function addImport(filePath: string, importStatement: string): Promise<ImportResult> {
+    try {
+        const absolutePath = path.resolve(filePath);
+        let fileContent = await readFile(absolutePath, 'utf8');
 
-    constructor() {
-        super();
-    }
-
-    @instrument("Tool._run", ["files", "modules"], { attributes: { tool: "CAImportsTool" } })
-    async _run(
-        input: CAImportsToolInput,
-        runManager?: AsyncCallbackManagerForToolRun
-    ): Promise<string> {
-        const { files = [], modules = [] } = input;
-
-        const allFiles = [
-            ...files.map(resolveFilePath),
-            ...modules.map(resolveModulePath)
-        ];
-
-        const importsAnalysis: Record<string, unknown> = {};
-        for (const filePath of allFiles) {
-            const moduleName = getModuleName(filePath);
-            importsAnalysis[moduleName] = await this.parser.getImports(filePath);
+        // Check if the import already exists
+        if (fileContent.includes(importStatement)) {
+            return {
+                success: false,
+                message: 'Import already exists in the file.',
+            };
         }
 
-        return JSON.stringify(importsAnalysis, null, 1);
+        // Add the import statement at the beginning of the file
+        fileContent = importStatement + '\n' + fileContent;
+
+        await writeFile(absolutePath, fileContent, 'utf8');
+        return {
+            success: true,
+            message: 'Import added successfully.',
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: `Error: ${error.message}`,
+        };
     }
 }
 
-export const caImportsTool = tool({
-    name: "ca_analyze_imports",
-    description: "Analyze the imports in Python files",
-    schema: CAImportsToolInputSchema,
-    func: async (input: CAImportsToolInput, runManager?: AsyncCallbackManagerForToolRun) => {
-        const tool = new CAImportsTool();
-        return tool._run(input, runManager);
-    }
-});
+export { addImport, ImportResult };
+
+// Main execution
+if (require.main === module) {
+    (async () => {
+        if (process.argv.length !== 4) {
+            console.error('Usage: node ca_imports_tool.js <file_path> <import_statement>');
+            process.exit(1);
+        }
+
+        const [, , filePath, importStatement] = process.argv;
+        const result = await addImport(filePath, importStatement);
+        console.log(result.message);
+        process.exit(result.success ? 0 : 1);
+    })();
+}

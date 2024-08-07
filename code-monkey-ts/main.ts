@@ -1,44 +1,65 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { program } from 'commander';
 import { Console } from 'console';
-import { Manager } from './src/agents/agents';
-import { getArtifactsDir, getRootDir } from './src/constants';
-import { setupLogging } from './src/util/logs';
+import chalk from 'chalk';
+import { Coder, CodeAnalyst, Manager } from './agents/agents';
+import { setupLogging } from './util/logs';
 
 const console = new Console({ stdout: process.stdout, stderr: process.stderr });
 
-class MainClass {
-    static async main(debug: boolean = false): Promise<void> {
-        setupLogging(debug);
-        console.log("\x1b[1m\x1b[32mWelcome to the AI Playground!\x1b[0m");
+type AgentType = 'Coder' | 'CodeAnalyst' | 'Manager';
+type AgentClass = typeof Coder | typeof CodeAnalyst | typeof Manager;
 
-        console.log("\x1b[1m\x1b[34mRunning Manager agent...\x1b[0m");
+async function main(debug: boolean = false): Promise<void> {
+    setupLogging(debug);
+    console.log(chalk.bold.green('Welcome to the AI Agent Selector!'));
 
-        const agent = new Manager("default");
+    console.log('Available agents:');
+    console.log('1. Coder');
+    console.log('2. CodeAnalyst');
+    console.log('3. Manager');
 
-        // Read prompt from .prompt.md file
-        const promptPath = path.join(process.cwd(), ".prompt.md");
-        const prompt = fs.readFileSync(promptPath, 'utf-8');
+    const agentChoice = 'Manager' as AgentType; // For now, we'll default to the Manager agent
+    let AgentClass: AgentClass;
 
-        await agent.runPrompt(prompt);
-        console.log("\x1b[1m\x1b[32mDONE\x1b[0m");
+    switch (agentChoice) {
+        case 'Coder':
+            AgentClass = Coder;
+            break;
+        case 'CodeAnalyst':
+            AgentClass = CodeAnalyst;
+            break;
+        case 'Manager':
+            AgentClass = Manager;
+            break;
+        default:
+            const _exhaustiveCheck: never = agentChoice;
+            throw new Error(`Invalid agent choice: ${_exhaustiveCheck}`);
     }
+
+    console.log(chalk.bold.blue(`Running ${agentChoice} agent...`));
+
+    const agent = new AgentClass(process.env.AI_MSN || '');
+    if ('initialize' in agent && typeof agent.initialize === 'function') {
+        agent.initialize();
+    }
+
+    // Read prompt from .prompt.md file
+    const promptPath = path.join(process.cwd(), '.prompt.md');
+    const prompt = fs.readFileSync(promptPath, 'utf-8');
+
+    await agent.runPrompt(prompt);
+    console.log(chalk.bold.green('DONE'));
 }
 
 if (require.main === module) {
-    program
-        .option('--debug', 'Enable debug logging')
-        .parse(process.argv);
+    const args = process.argv.slice(2);
+    const debug = args.includes('--debug');
 
-    const options = program.opts();
-
-    MainClass.main(options.debug)
-        .then(() => process.exit(0))
-        .catch((error) => {
-            console.error(error);
-            process.exit(1);
-        });
+    main(debug).then(() => {
+        process.exit(0);
+    }).catch((error) => {
+        console.error('An error occurred:', error);
+        process.exit(1);
+    });
 }
-
-export { MainClass as main };

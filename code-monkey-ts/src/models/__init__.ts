@@ -1,1 +1,0 @@
-export { MSN } from './msn';

@@ -1,56 +1,54 @@
-import { z } from 'zod';
-import { AsyncCallbackManagerForToolRun } from '@langchain/core/callbacks/manager';
-import { tool } from '@langchain/core/tools';
-import { IOTool } from './io_tool';
-import { makeFilePath } from './utils';
-import { instrument } from '../instrumentation';
+import * as fs from 'fs';
+import * as path from 'path';
+import { promisify } from 'util';
 
-const ReplaceInFileToolInputSchema = z.object({
-    fname: z.string().describe("Name of the file to edit."),
-    to_replace: z.string().describe("The string to be replaced."),
-    replacement: z.string().describe("The string to replace with.")
-});
+const readFile = promisify(fs.readFile);
+const writeFile = promisify(fs.writeFile);
 
-type ReplaceInFileToolInput = z.infer<typeof ReplaceInFileToolInputSchema>;
+interface ReplaceInFileResult {
+    success: boolean;
+    message: string;
+}
 
-export class ReplaceInFileTool extends IOTool {
-    name = "replace_in_file";
-    description = "Replace a specific string in a file with another string";
-    schema = ReplaceInFileToolInputSchema;
-
-    @instrument(
-        "Tool._run",
-        ["fname", "to_replace", "replacement"],
-        { attributes: { tool: "ReplaceInFileTool" } }
-    )
-    async _run(
-        { fname, to_replace, replacement }: ReplaceInFileToolInput,
-        runManager?: AsyncCallbackManagerForToolRun
-    ): Promise<void> {
-        const filePath = makeFilePath(fname);
-        const content = await fs.promises.readFile(filePath, 'utf-8');
-
-        const occurrences = (content.match(new RegExp(to_replace, 'g')) || []).length;
-        if (occurrences !== 1) {
-            throw new Error(
-                `The string '${to_replace}' appears ${occurrences} times in the file. It must appear exactly once for replacement.`
-            );
+async function replaceInFile(filePath: string, oldText: string, newText: string): Promise<ReplaceInFileResult> {
+    try {
+        const absolutePath = path.resolve(filePath);
+        const fileContent = await readFile(absolutePath, 'utf8');
+        const updatedContent = fileContent.replace(new RegExp(oldText, 'g'), newText);
+        
+        if (fileContent === updatedContent) {
+            return {
+                success: false,
+                message: 'No changes were made to the file.',
+            };
         }
 
-        const newContent = content.replace(to_replace, replacement);
-
-        await fs.promises.writeFile(filePath, newContent, 'utf-8');
-
-        this.notifyFileModified(fname);
+        await writeFile(absolutePath, updatedContent, 'utf8');
+        return {
+            success: true,
+            message: 'File updated successfully.',
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: `Error: ${error.message}`,
+        };
     }
 }
 
-export const replaceInFileTool = tool({
-    name: "replace_in_file",
-    description: "Replace a specific string in a file with another string",
-    schema: ReplaceInFileToolInputSchema,
-    func: async (input: ReplaceInFileToolInput, runManager?: AsyncCallbackManagerForToolRun) => {
-        const tool = new ReplaceInFileTool();
-        await tool._run(input, runManager);
-    }
-});
+export { replaceInFile, ReplaceInFileResult };
+
+// Main execution
+if (require.main === module) {
+    (async () => {
+        if (process.argv.length !== 5) {
+            console.error('Usage: node replace_in_file_tool.js <file_path> <old_text> <new_text>');
+            process.exit(1);
+        }
+
+        const [, , filePath, oldText, newText] = process.argv;
+        const result = await replaceInFile(filePath, oldText, newText);
+        console.log(result.message);
+        process.exit(result.success ? 0 : 1);
+    })();
+}

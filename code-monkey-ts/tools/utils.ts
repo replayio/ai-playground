@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
+import { getArtifactsDir } from './constants';
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -49,8 +50,40 @@ export function listFiles(dirPath: string): string[] {
     return fs.readdirSync(dirPath);
 }
 
-// Main execution
-if (require.main === module) {
-    console.log('This module provides utility functions for file and path operations.');
-    console.log('Import and use these functions in your TypeScript code as needed.');
+
+export function makeFilePath(name: string): string {
+    // resolve here because `name` could start with "../" and escape the
+    // artifacts directory
+    const filePath = path.resolve(getArtifactsDir(), name);
+    if (!filePath.startsWith(getArtifactsDir())) {
+        throw new Error("Access to file outside artifacts directory is not allowed");
+    }
+    return filePath;
+}
+
+export function askUser(prompt: string): Promise<string> {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+
+    return new Promise((resolve) => {
+        rl.question(prompt + '\n', (answer) => {
+            rl.close();
+            resolve(answer);
+        });
+    });
+}
+
+export function showDiff(originalFile: string, modifiedFile: string): void {
+    console.debug(`Diffing ${originalFile} and ${modifiedFile}`);
+    if (fs.existsSync(originalFile) && fs.existsSync(modifiedFile)) {
+        spawn('code', ['--diff', originalFile, modifiedFile], { stdio: 'inherit' });
+    } else if (fs.existsSync(modifiedFile)) {
+        spawn('code', [modifiedFile], { stdio: 'inherit' });
+    } else if (fs.existsSync(originalFile)) {
+        console.log("File deleted.");
+    } else {
+        throw new Error(`Could not diff files. Neither file exists: ${originalFile} and ${modifiedFile}`);
+    }
 }

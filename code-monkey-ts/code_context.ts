@@ -1,22 +1,39 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as shutil from 'fs-extra';
-import ignore from 'ignore';
-import { getArtifactsDir } from './src/constants';
+import * as util from 'util';
+import { getArtifactsDir, getRootDir } from './constants';
 
-function getAllSrcFiles(): string[] {
-    const rootDir: string = process.cwd();
+const readFile = util.promisify(fs.readFile);
+const writeFile = util.promisify(fs.writeFile);
+const mkdir = util.promisify(fs.mkdir);
+const copyFile = util.promisify(fs.copyFile);
+
+// Simple implementation of gitignore-style pattern matching
+function matchesGitIgnorePattern(filePath: string, pattern: string): boolean {
+    const regexPattern = pattern
+        .replace(/\./g, '\\.')
+        .replace(/\*/g, '.*')
+        .replace(/\?/g, '.');
+    const regex = new RegExp(`^${regexPattern}$`);
+    return regex.test(filePath);
+}
+
+async function getAllSrcFiles(): Promise<string[]> {
+    const srcFiles: string[] = [];
+    const rootDir = getRootDir();
 
     // Read .gitignore patterns
-    let gitignorePatterns: string[] = [".git"];
-    // Check current directory and up to max 3 parent directories until we hit
-    // our root dir.
-    for (let i = 0; i < 4; i++) {
-        const dirPath: string = path.resolve(__dirname, ...Array(i).fill('..'));
-        const gitignorePath: string = path.join(dirPath, ".gitignore");
+    let gitignorePatterns: string[] = ['.git'];
 
+    // Check current directory and up to max 3 parent directories until we hit our root dir
+    for (let i = 0; i < 4; i++) {
+        const dirPath = path.resolve(__dirname, ...Array(i).fill('..'));
+        const gitignorePath = path.join(dirPath, '.gitignore');
+
+        console.debug(`checking gitignore path ${gitignorePath}`);
         if (fs.existsSync(gitignorePath)) {
-            const gitignoreContent: string = fs.readFileSync(gitignorePath, 'utf-8');
+            console.debug('   found it');
+            const gitignoreContent = await readFile(gitignorePath, 'utf-8');
             gitignorePatterns = gitignorePatterns.concat(gitignoreContent.split('\n'));
         }
 
@@ -25,48 +42,44 @@ function getAllSrcFiles(): string[] {
         }
     }
 
-    // Create ignore object
-    const ignoreSpec = ignore().add(gitignorePatterns);
-
-    const walkSync = (dir: string, filelist: string[] = []): string[] => {
-        fs.readdirSync(dir).forEach((file) => {
-            const dirFile = path.join(dir, file);
-            if (fs.statSync(dirFile).isDirectory()) {
-                filelist = walkSync(dirFile, filelist);
+    // Walk through the directory
+    const walk = (dir: string): void => {
+        const files = fs.readdirSync(dir);
+        for (const file of files) {
+            const filePath = path.join(dir, file);
+            const stat = fs.statSync(filePath);
+            if (stat.isDirectory()) {
+                walk(filePath);
             } else {
-                const relPath = path.relative(rootDir, dirFile);
-                if (!ignoreSpec.ignores(relPath)) {
-                    filelist.push(relPath);
+                const relPath = path.relative(rootDir, filePath);
+                if (!gitignorePatterns.some(pattern => matchesGitIgnorePattern(relPath, pattern))) {
+                    srcFiles.push(relPath);
                 }
             }
-        });
-        return filelist;
+        }
     };
 
-    return walkSync(rootDir);
+    walk(rootDir);
+    return srcFiles;
 }
 
-export class CodeContext {
-    private knownFiles: string[];
+class CodeContext {
+    private knownFiles: string[] = [];
 
-    constructor() {
-        this.knownFiles = [];
-    }
-
-    copySrc(): string[] {
-        const destDir: string = getArtifactsDir();
+    async copySrc(): Promise<string[]> {
+        const destDir = getArtifactsDir();
 
         if (!fs.existsSync(destDir)) {
-            fs.mkdirSync(destDir, { recursive: true });
+            await mkdir(destDir, { recursive: true });
         }
 
-        const filesToCopy: string[] = getAllSrcFiles();
+        const filesToCopy = await getAllSrcFiles();
 
         for (const relPath of filesToCopy) {
-            const srcPath: string = path.join(process.cwd(), relPath);
-            const destPath: string = path.join(destDir, relPath);
-            fs.mkdirSync(path.dirname(destPath), { recursive: true });
-            shutil.copySync(srcPath, destPath);
+            const srcPath = path.join(getRootDir(), relPath);
+            const destPath = path.join(destDir, relPath);
+            await mkdir(path.dirname(destPath), { recursive: true });
+            await copyFile(srcPath, destPath);
         }
 
         this.knownFiles = filesToCopy;
@@ -74,8 +87,14 @@ export class CodeContext {
     }
 }
 
+// Main execution
 if (require.main === module) {
-    getAllSrcFiles().forEach((file) => {
-        // File list processing can be done here if needed
-    });
+    (async () => {
+        const files = await getAllSrcFiles();
+        for (const file of files) {
+            console.log(file);
+        }
+    })();
 }
+
+export { CodeContext, getAllSrcFiles };
