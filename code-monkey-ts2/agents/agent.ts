@@ -157,11 +157,9 @@ export abstract class Agent extends BaseAgent {
             }
         )
 
-        let modified_file_promises: Promise<void>[] = [];
-        modified_files.forEach(file => {
-            modified_file_promises.push(this.handleModifiedFile(file));
-        });
-        await Promise.all(modified_file_promises);
+        for (const file of Array.from(modified_files)) {
+            await this.handleModifiedFile(file);
+        }
     }
 
     @instrument("Agent.handle_modified_file")

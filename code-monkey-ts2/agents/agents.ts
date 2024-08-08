@@ -16,14 +16,14 @@ import {
 } from "../tools";
 import { CodeContext } from "../code_context";
 import { Agent } from "./agent";
-import { getArtifactsDir, getSrcDir } from "../constants";
+import { getArtifactsDir, getRootDir } from "../constants";
 
 
 let defaultCodeContext: CodeContext | null = null;
 async function getDefaultCodeContext(
 ): Promise<CodeContext> {
   if (defaultCodeContext === null) {
-    defaultCodeContext = new CodeContext(getSrcDir(), getArtifactsDir());
+    defaultCodeContext = new CodeContext(getRootDir(), getArtifactsDir());
     await defaultCodeContext.indexFiles();
   }
   return defaultCodeContext;
@@ -45,7 +45,7 @@ export class EngineeringPlanner extends Agent {
             [
                 new InvokeAgentTool(["Engineer"]),
             ]
-        )
+        );
     }
 }
 

@@ -24,6 +24,12 @@ export async function getServiceForAgent(agentName: string): Promise<AgentServic
     await agent.initialize();
 
     const service = new AgentService(agent);
-    serviceByAgentName[agentName] = service;
+
+    // TODO(toshok) commenting out the next line will cause us to reuse agents
+    // across multiple prompts.  There's no real reason for it to be a problem
+    // to reuse our agents, but since we don't have a unique thread_id for each
+    // "conversation", it will be.
+    //
+    // serviceByAgentName[agentName] = service;
     return service;
 }

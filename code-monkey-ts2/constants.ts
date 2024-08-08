@@ -2,7 +2,7 @@ import process from "process";
 import path from "path";
 import dotenv from "dotenv";
 
-export function getSrcDir(): string {
+function getSrcDir(): string {
     // presumably __dirname is absolute, but just to be consistent everywhere
     return path.resolve(__dirname);
 }

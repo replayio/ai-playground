@@ -72,11 +72,11 @@ async function getAllSrcFiles(rootDir = getRootDir()): Promise<string[]> {
 class CodeContext {
   knownFiles: string[] = [];
 
-  constructor(public srcDir: string, public artifactsDir?: string) {}
+  constructor(public rootDir: string, public artifactsDir?: string) {}
 
   async indexFiles(): Promise<void> {
     // Get all files.
-    const filesToCopy = await getAllSrcFiles(this.srcDir);
+    const filesToCopy = await getAllSrcFiles(this.rootDir);
     console.log(`DDBG init ${filesToCopy}`);
     this.knownFiles = filesToCopy;
 
@@ -87,7 +87,7 @@ class CodeContext {
       }
 
       for (const relPath of filesToCopy) {
-        const srcPath = path.join(this.srcDir, relPath);
+        const srcPath = path.join(this.rootDir, relPath);
         const destPath = path.join(this.artifactsDir, relPath);
         await mkdir(path.dirname(destPath), { recursive: true });
         await copyFile(srcPath, destPath);
