@@ -11,6 +11,18 @@ const schema = z.object({
     prompt: z.string().describe("Prompt to run with the agent"),
 });
 
+
+// a hack to clear the async local storage langchain uses to send events to the correct stream.
+// this lets us run multiple agents with their own independent streamEvents loop.
+const TRACING_ALS_KEY = Symbol.for("ls:tracing_async_local_storage");
+function exitLangChainAsyncLocalStorage<T>(f: () => T): T {
+    const storage: AsyncLocalStorage<any> = globalThis[TRACING_ALS_KEY] as AsyncLocalStorage<any>;
+    if (storage) {
+        return storage.exit(f);
+    } else {
+        return f();
+    }
+}
 export class InvokeAgentTool extends StructuredTool {
     name = "invoke_agent";
     schema = schema;
@@ -38,20 +50,9 @@ export class InvokeAgentTool extends StructuredTool {
 
             const service = await getServiceForAgent(agent_name);
 
-            const TRACING_ALS_KEY = Symbol.for("ls:tracing_async_local_storage");
-
-            let response: string;
-
-            const storage: AsyncLocalStorage<any> = globalThis[TRACING_ALS_KEY] as AsyncLocalStorage<any>;
-            if (storage) {
-                console.log("******* YESSSSS");
-                response = await storage.exit(async () => {
-                    return await service.sendPrompt(prompt);
-                });
-            } else {
-                console.log("******* NOOOOOO");
-                response = await service.sendPrompt(prompt);
-            }
+            const response = await exitLangChainAsyncLocalStorage(() => {
+                return service.sendPrompt(prompt);
+            });
 
             // getLogger(__filename).debug(`[invoke_agent TOOL] Successfully invoked agent '${agent_name}' and received a response: ${JSON.stringify(response)}`);
             console.debug(`[invoke_agent TOOL] Successfully invoked agent '${agent_name}' and received a response: ${JSON.stringify(response)}`);
