@@ -14,6 +14,10 @@ import { showDiff, askUser } from "../tools/utils";
 
 import { BaseAgent } from "./base_agent";
 
+function debugLog(...args: any[]) {
+    console.debug(...args);
+}
+
 export abstract class Agent extends BaseAgent {
     model: ReturnType<typeof createReactAgent>;
 
@@ -37,10 +41,9 @@ export abstract class Agent extends BaseAgent {
             tools: this.tools,
             checkpointSaver: checkpointer,
         });
-        this.initialize();
     }
 
-    initialize(): void {
+    async initialize(): Promise<void> {
     }
 
     preparePrompt(prompt: string): string {
@@ -56,7 +59,7 @@ export abstract class Agent extends BaseAgent {
         });
         // TODO
         // logger = get_logger(__name__)
-        // logger.info(f"Running prompt: {prompt}")
+        // logger.info(`Running prompt: {prompt}`);
 
         console.log(`[AGENT ${this.name}] Running prompt: ${prompt}`);
         const system = new SystemMessage({
@@ -78,11 +81,10 @@ export abstract class Agent extends BaseAgent {
                 version: "v2",
             }
         )) {
-            // console.log(JSON.stringify(event));
             const kind = event.event;
 
             if (kind != "on_chat_model_stream" && kind != "on_chain_end" && kind != "on_chain_stream" && kind != "on_chain_start") {
-                // TODO logger.debug(f"[AGENT {self.name}] received event: {kind}")
+                debugLog(`[AGENT ${this.name}] received event: ${JSON.stringify(event, null, 2)}`);
             }
 
             if (kind == "on_chat_model_start") {
@@ -101,18 +103,16 @@ export abstract class Agent extends BaseAgent {
 
             if (kind == "on_tool_start") {
                 // TODO
-                // const tool_name = event.name;
-                // const tool_input = event.data.input;
-                // logger.debug(f"tool start - name={tool_name}, input={repr(tool_input)}")
+                const tool_name = event.name;
+                const tool_input = event.data.input;
+                debugLog(`[AGENT ${this.name}] ${kind} - name=${tool_name}, input=${JSON.stringify(tool_input)}`);
                 continue;
             }
 
             if (kind == "on_tool_end") {
-                // TODO
-                // logger.debug("----")
-                // const tool_name = event.name;
-                // const tool_output = event.data.output.content[:20]
-                // logger.debug(f"[AGENT {self.name}] tool end - name={tool_name}, output={repr(tool_output)}")
+                const tool_name = event.name;
+                const tool_output = event.data.output.content.slice(0, 20);
+                debugLog(`[AGENT ${this.name}] ${kind} - name=${tool_name}, output=${JSON.stringify(tool_output)}`);
                 continue;
             }
 
@@ -123,7 +123,7 @@ export abstract class Agent extends BaseAgent {
                 } else {
                     result = event.data.output.content;
                 }
-                console.log(`[AGENT ${this.name}] ${result}`);
+                debugLog(`[AGENT ${this.name}] RESULT: ${result}`);
                 // TODO(toshok) still need to compute tokens
                 continue;
             }
@@ -132,10 +132,9 @@ export abstract class Agent extends BaseAgent {
                 // TODO(toshok) a better dispatch mechanism would be nice, but
                 // there's only one event type currently
                 if (event.name === "file_modified") {
-                    modified_files.add(event.data);
+                    modified_files.add(event.data.output);
                 } else {
-                    // TODO
-                    // logger.debug(`[AGENT ${this.name}] Unknown prompt event: '${event["name"]}'`)
+                    debugLog(`[AGENT ${this.name}] Unknown prompt event: '${event["name"]}'`)
                 }
                 continue;
             }
@@ -144,8 +143,7 @@ export abstract class Agent extends BaseAgent {
 
         await this.handleCompletion(modified_files);
 
-        // TODO(toshok) we aren't returning a result here, and likely should...
-        // TODO logger.debug(`[AGENT ${this.name}] runPrompt result: "${result || ""}"`)
+        debugLog(`[AGENT ${this.name}] runPrompt result: "${result || ""}"`)
         return result || "";
     }
 

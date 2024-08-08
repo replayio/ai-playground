@@ -35,12 +35,12 @@ export class InvokeAgentTool extends StructuredTool {
                 throw new Error(`Agent '${agent_name}' not found or not allowed.`);
             }
 
-            const service = getServiceForAgent(agent_name);
+            const service = await getServiceForAgent(agent_name);
 
             const response = await service.sendPrompt(prompt);
 
             // getLogger(__filename).debug(`[invoke_agent TOOL] Successfully invoked agent '${agent_name}' and received a response: ${JSON.stringify(response)}`);
-            console.log(`[invoke_agent TOOL] Successfully invoked agent '${agent_name}' and received a response: ${JSON.stringify(response)}`);
+            console.debug(`[invoke_agent TOOL] Successfully invoked agent '${agent_name}' and received a response: ${JSON.stringify(response)}`);
             return response;
         } catch (err) {
             const error_message = `Failed to invoke agent '${agent_name}': ${err instanceof Error ? err.message : String(err)}`;

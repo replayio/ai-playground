@@ -20,11 +20,11 @@ export class ReadFileTool extends StructuredTool {
         const filePath = makeFilePath(fname);
         try {
             const content = await readFileContent(filePath);
-            return `File content: ${content}`;
+            return `${content}`;
         } catch (error) {
             // console.error(`Failed to open file for reading: ${filePath}`);
             // console.error(error);
-            return "Failed to read file";
+            return `Failed to read file: ${error?.stack || error}`;
         }
     }
 }

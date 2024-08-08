@@ -10,7 +10,7 @@
     "@opentelemetry/resources": "^1.25.1",
     "@opentelemetry/sdk-trace-node": "^1.25.1",
     "@opentelemetry/semantic-conventions": "^1.25.1",
-    "chalk": "^5.3.0",
+    "chalk": "^4.1.2",
     "commander": "^11.0.0",
     "dotenv": "^16.4.5",
     "eslint-plugin-jest": "^28.7.0",

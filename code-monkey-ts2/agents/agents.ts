@@ -14,10 +14,20 @@ import {
 // TODO    CAASTAnalyzerTool,
 // TODO    CADependencyGraphTool,
 } from "../tools";
-import { CodeContext, getDefaultCodeContext } from "../code_context";
+import { CodeContext } from "../code_context";
 import { Agent } from "./agent";
-import { loadEnvironment, getRootDir } from "../constants";
+import { getArtifactsDir, getSrcDir } from "../constants";
 
+
+let defaultCodeContext: CodeContext | null = null;
+async function getDefaultCodeContext(
+): Promise<CodeContext> {
+  if (defaultCodeContext === null) {
+    defaultCodeContext = new CodeContext(getSrcDir(), getArtifactsDir());
+    await defaultCodeContext.indexFiles();
+  }
+  return defaultCodeContext;
+}
 
 export class EngineeringPlanner extends Agent {
     constructor() {
@@ -109,8 +119,8 @@ export class Coder extends Agent {
         );
     }
 
-    initialize(): void {
-        this.setContext(getDefaultCodeContext());
+    async initialize(): Promise<void> {
+        this.setContext(await getDefaultCodeContext());
     }
 
     setContext(context: CodeContext): void {
@@ -150,8 +160,8 @@ export class Debugger extends Agent {
         );
     }
 
-    initialize(): void {
-        this.setContext(getDefaultCodeContext());
+    async initialize(): Promise<void> {
+        this.setContext(await getDefaultCodeContext());
     }
 
     setContext(context: CodeContext): void {
@@ -191,8 +201,8 @@ export class Manager extends Agent {
     ]);
     }
 
-    initialize(): void {
-        this.setContext(getDefaultCodeContext());
+    async initialize(): Promise<void> {
+        this.setContext(await getDefaultCodeContext());
     }
 
     setContext(context: CodeContext): void {

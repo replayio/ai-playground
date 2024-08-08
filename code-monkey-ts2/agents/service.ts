@@ -8,20 +8,20 @@ class AgentService {
     }
 
     async sendPrompt(prompt: string): Promise<string> {
-        console.log(`Sending prompt to ${this.agent.name}: ${prompt}`);
+        console.debug(`Sending prompt to ${this.agent.name}: ${prompt}`);
         return await this.agent.runPrompt(prompt);
     }
 }
 
 
 const serviceByAgentName: Record<string, AgentService> = Object.create(null);
-export function getServiceForAgent(agentName: string): AgentService {
+export async function getServiceForAgent(agentName: string): Promise<AgentService> {
     if (serviceByAgentName[agentName]) {
         return serviceByAgentName[agentName];
     }
     const AgentClass = agentsByName[agentName];
     const agent = new AgentClass();
-    agent.initialize();
+    await agent.initialize();
 
     const service = new AgentService(agent);
     serviceByAgentName[agentName] = service;
