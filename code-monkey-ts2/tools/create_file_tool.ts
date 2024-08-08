@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { z } from "zod";
 import { makeFilePath } from './utils';
-// TODO import { instrument } from '../instrumentation';
+import { instrument, currentSpan } from '../instrumentation';
 import { IOTool } from './io_tool';
 
 const schema = z.object({
@@ -15,8 +15,12 @@ export class CreateFileTool extends IOTool {
     description = "Create a new file with optional content";
     schema = schema;
 
-    // TODO @instrument("Tool._call", ["fname", "content"], { tool: "CreateFileTool" })
+    @instrument("Tool._call", { tool: "CreateFileTool" })
     async _call({ fname, content }: z.infer<typeof schema>): Promise<string> {
+        currentSpan().setAttributes({
+            fname,
+            content: content || ""
+        });
         try {
             const filePath = makeFilePath(fname);
             fs.mkdirSync(path.dirname(filePath), { recursive: true });

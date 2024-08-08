@@ -4,10 +4,11 @@ import chalk from "chalk";
 
 import { Manager } from "./agents";
 import { loadEnvironment, getRootDir } from "./constants";
-// TODO import { instrument, initialize_tracers } from "./instrumentation";
+import { /*instrument,*/ initializeTracer } from "./instrumentation";
 // TODO import { setup_logging } from "./util/logs";
 
-// TODO @instrument("main")
+// TODO(toshok) decorators not available here :thumbs-down: 
+// @instrument("main")
 async function main(debug: Boolean): Promise<void> {
     // TODO setup_logging(debug)
     console.log(chalk.green.bold("Welcome to the AI Playground!"))
@@ -27,12 +28,7 @@ async function main(debug: Boolean): Promise<void> {
 if (require.main === module) {
     loadEnvironment()
 
-    // TODO
-    // initialize_tracer(
-    //     {
-    //         "agent": "Manager",
-    //     }
-    // )
+    initializeTracer();
 
     const args = process.argv.slice(2);
     const debug = args.includes('--debug');

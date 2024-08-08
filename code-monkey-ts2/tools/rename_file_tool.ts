@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { z } from "zod";
 import { makeFilePath } from './utils';
-// TODO import { instrument } from '../instrumentation';
+import { instrument, currentSpan } from '../instrumentation';
 import { IOTool } from './io_tool';
 
 const schema = z.object({
@@ -15,8 +15,13 @@ export class RenameFileTool extends IOTool {
     description = "Rename a file, given old and new names";
     schema = schema;
 
-    // TODO @instrument("Tool._call", ["old_name", "new_name"], { tool: "RenameFileTool" })
+    @instrument("Tool._call", { tool: "RenameFileTool" })
     async _call({ old_name, new_name }: z.infer<typeof schema>): Promise<string> {
+        currentSpan().setAttributes({
+            old_name,
+            new_name,
+        });
+
         try {
             const oldPath = makeFilePath(old_name);
             const newPath = makeFilePath(new_name);

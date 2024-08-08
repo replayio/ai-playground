@@ -7,7 +7,7 @@ import { MemorySaver } from "@langchain/langgraph";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { StructuredTool } from "@langchain/core/tools";
 
-// TODO import { instrument } from "../instrumentation";
+import { instrument, currentSpan } from "../instrumentation";
 import { getRootDir, getArtifactsDir, getAgentMSN } from "../constants";
 import { MSN } from "../models";
 import { showDiff, askUser } from "../tools/utils";
@@ -48,8 +48,12 @@ export abstract class Agent extends BaseAgent {
     }
 
 
-    // TODO @instrument("Agent.runPrompt", ["prompt"])
+    @instrument("Agent.runPrompt")
     async runPrompt(prompt: string): Promise<string> {
+        currentSpan().setAttributes({
+            agent: this.name,
+            prompt,
+        });
         // TODO
         // logger = get_logger(__name__)
         // logger.info(f"Running prompt: {prompt}")
@@ -145,15 +149,15 @@ export abstract class Agent extends BaseAgent {
         return result || "";
     }
 
-    // TODO @instrument("Agent.handleCompletion")
+    @instrument("Agent.handleCompletion")
     async handleCompletion(modified_files: Set<string>): Promise<void> {
-        // TODO
-        // current_span().set_attributes(
-        //     {
-        //         "num_modified_files": len(modified_files),
-        //         "modified_files": str(modified_files),
-        //     }
-        // )
+        currentSpan().setAttributes(
+            {
+                agent: this.name,
+                num_modified_files: modified_files.size,
+                modified_files: Array.from(modified_files).join(", "),
+            }
+        )
 
         let modified_file_promises: Promise<void>[] = [];
         modified_files.forEach(file => {
@@ -162,8 +166,14 @@ export abstract class Agent extends BaseAgent {
         await Promise.all(modified_file_promises);
     }
 
-    // TODO @instrument("Agent.handle_modified_file", ["file"])
+    @instrument("Agent.handle_modified_file")
     async handleModifiedFile(file: string): Promise<void> {
+        currentSpan().setAttributes(
+            {
+                agent: this.name,
+                file,
+            }
+        );
         const original_file = path.join(getRootDir(), file);
         const modified_file = path.join(getArtifactsDir(), file);
         showDiff(original_file, modified_file);
@@ -184,8 +194,16 @@ export abstract class Agent extends BaseAgent {
         }
     }
 
-    // TODO @instrument("Agent.applyChanges", ["original_file", "modified_file"])
+    @instrument("Agent.applyChanges")
     applyChanges(original_file: string, modified_file: string): void {
+        currentSpan().setAttributes(
+            {
+                agent: this.name,
+                original_file,
+                modified_file,
+            }
+        );
+
         // TODO(toshok) we probably want the before/after size?  or something about size of the diff
         const modified_content = fs.readFileSync(modified_file, 'utf8');
         fs.writeFileSync(original_file, modified_content);

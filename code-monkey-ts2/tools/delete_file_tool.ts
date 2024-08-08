@@ -1,8 +1,7 @@
 import * as fs from 'fs';
-import * as path from 'path';
 import { z } from "zod";
 import { makeFilePath } from './utils';
-// TODO import { instrument } from '../instrumentation';
+import { instrument, currentSpan } from '../instrumentation';
 import { IOTool } from './io_tool';
 
 const schema = z.object({
@@ -15,8 +14,11 @@ export class DeleteFileTool extends IOTool {
     schema = schema;
 
 
-    // TODO @instrument("Tool._call", ["fname", "content"], { tool: "DeleteFileTool" })
+    @instrument("Tool._call", { tool: "DeleteFileTool" })
     async _call({ fname }: z.infer<typeof schema>): Promise<string> {
+        currentSpan().setAttributes({
+            fname,
+        });
         try {
             const filePath = makeFilePath(fname);
             fs.unlinkSync(filePath);

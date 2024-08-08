@@ -6,7 +6,7 @@ import {
     InvokeAgentTool,
     ReadFileTool,
     RenameFileTool,
-// TODO    ReplaceInFileTool,
+    ReplaceInFileTool,
 // TODO    RunTestTool,
     WriteFileTool,
 // TODO    CAImportsTool,
@@ -17,9 +17,6 @@ import {
 import { CodeContext, getDefaultCodeContext } from "../code_context";
 import { Agent } from "./agent";
 import { loadEnvironment, getRootDir } from "../constants";
-// TODO import { initialize_tracer, instrument } from "../instrumentation";
-// TODO import { setup_logging } from "../util/logs";
-
 
 
 export class EngineeringPlanner extends Agent {
@@ -107,7 +104,7 @@ export class Coder extends Agent {
                 new CreateFileTool(),
                 new RenameFileTool(),
                 new DeleteFileTool(),
-                // TODO new ReplaceInFileTool(),
+                new ReplaceInFileTool(),
             ]
         );
     }

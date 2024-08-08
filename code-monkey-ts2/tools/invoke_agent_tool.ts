@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { StructuredTool } from "@langchain/core/tools";
-import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
-// TODO import { instrument } from "../instrumentation";
+import { instrument, currentSpan } from "../instrumentation";
 // TODO import { getLogger } from "../utils/logger";
 
 import { getServiceForAgent } from "../agents";
@@ -24,8 +23,13 @@ export class InvokeAgentTool extends StructuredTool {
         this.description = `Invokes another agent by name and runs it with a given prompt. Allowed agents: ${this.allowedAgents.join(", ")}`;
     }
 
-    // TODO @instrument("Tool._call", ["agent_name", "prompt"], { tool: "InvokeAgentTool" })
+    @instrument("Tool._call", { tool: "InvokeAgentTool" })
     async _call({ agent_name, prompt }: z.infer<typeof schema>): Promise<string> {
+        currentSpan().setAttributes({
+            agent_name,
+            prompt,
+        });
+
         try {
             if (!this.allowedAgents.includes(agent_name)) {
                 throw new Error(`Agent '${agent_name}' not found or not allowed.`);
@@ -33,13 +37,8 @@ export class InvokeAgentTool extends StructuredTool {
 
             const service = getServiceForAgent(agent_name);
 
-            console.log(1);
             const response = await service.sendPrompt(prompt);
-            console.log(2);
 
-            // emit a custom event with the response
-            // await dispatchCustomEvent("agent_response", response);
-            
             // getLogger(__filename).debug(`[invoke_agent TOOL] Successfully invoked agent '${agent_name}' and received a response: ${JSON.stringify(response)}`);
             console.log(`[invoke_agent TOOL] Successfully invoked agent '${agent_name}' and received a response: ${JSON.stringify(response)}`);
             return response;
