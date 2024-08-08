@@ -132,7 +132,7 @@ export abstract class Agent extends BaseAgent {
                 // TODO(toshok) a better dispatch mechanism would be nice, but
                 // there's only one event type currently
                 if (event.name === "file_modified") {
-                    modified_files.add(event.data.output);
+                    modified_files.add(event.data as string);
                 } else {
                     debugLog(`[AGENT ${this.name}] Unknown prompt event: '${event["name"]}'`)
                 }

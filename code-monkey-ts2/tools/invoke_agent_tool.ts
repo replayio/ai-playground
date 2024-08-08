@@ -4,6 +4,7 @@ import { instrument, currentSpan } from "../instrumentation";
 // TODO import { getLogger } from "../utils/logger";
 
 import { getServiceForAgent } from "../agents";
+import { AsyncLocalStorage } from "async_hooks";
 
 const schema = z.object({
     agent_name: z.string().describe("Name of the agent to invoke"),
@@ -37,7 +38,20 @@ export class InvokeAgentTool extends StructuredTool {
 
             const service = await getServiceForAgent(agent_name);
 
-            const response = await service.sendPrompt(prompt);
+            const TRACING_ALS_KEY = Symbol.for("ls:tracing_async_local_storage");
+
+            let response: string;
+
+            const storage: AsyncLocalStorage<any> = globalThis[TRACING_ALS_KEY] as AsyncLocalStorage<any>;
+            if (storage) {
+                console.log("******* YESSSSS");
+                response = await storage.exit(async () => {
+                    return await service.sendPrompt(prompt);
+                });
+            } else {
+                console.log("******* NOOOOOO");
+                response = await service.sendPrompt(prompt);
+            }
 
             // getLogger(__filename).debug(`[invoke_agent TOOL] Successfully invoked agent '${agent_name}' and received a response: ${JSON.stringify(response)}`);
             console.debug(`[invoke_agent TOOL] Successfully invoked agent '${agent_name}' and received a response: ${JSON.stringify(response)}`);
