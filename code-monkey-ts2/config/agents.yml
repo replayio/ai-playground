@@ -5,7 +5,5 @@ gpt4-msn: &gpt4-o-mini
   msn: openai/gpt-4o-mini-2024-07-18
 
 agents:
-  Coder:
-    *gpt4-o-mini
-  default:  
-    *claude-3-5-sonnet
+  Coder: *gpt4-o-mini
+  default: *claude-3-5-sonnet

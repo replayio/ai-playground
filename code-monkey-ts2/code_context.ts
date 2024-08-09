@@ -35,7 +35,7 @@ async function getAllSrcFiles(rootDir = getRootDir()): Promise<string[]> {
       console.debug("   found it");
       const gitignoreContent = await readFile(gitignorePath, "utf-8");
       gitignorePatterns = gitignorePatterns.concat(
-        gitignoreContent.split("\n").filter((l) => l.trim() !== "")
+        gitignoreContent.split("\n").filter((l) => l.trim() !== ""),
       );
     }
 
@@ -56,7 +56,7 @@ async function getAllSrcFiles(rootDir = getRootDir()): Promise<string[]> {
         const relPath = path.relative(rootDir, filePath);
         if (
           !gitignorePatterns.some((pattern) =>
-            matchesGitIgnorePattern(relPath, pattern)
+            matchesGitIgnorePattern(relPath, pattern),
           )
         ) {
           srcFiles.push(relPath);
@@ -72,7 +72,10 @@ async function getAllSrcFiles(rootDir = getRootDir()): Promise<string[]> {
 class CodeContext {
   knownFiles: string[] = [];
 
-  constructor(public rootDir: string, public artifactsDir?: string) {}
+  constructor(
+    public rootDir: string,
+    public artifactsDir?: string,
+  ) {}
 
   async indexFiles(): Promise<void> {
     // Get all files.

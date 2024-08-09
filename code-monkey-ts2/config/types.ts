@@ -1,7 +1,5 @@
-
-
 export type AgentConfig = {
-    msn: string;
+  msn: string;
 };
 
 export type AgentsConfig = Record<string, AgentConfig>;

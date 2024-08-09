@@ -13,7 +13,7 @@ const originalDebug = console.debug;
 console.debug = (...args: any[]): void => {
   // Use chalk.gray() to color the output
   const grayArgs = args.map((arg) =>
-    typeof arg === "string" ? chalk.gray(arg) : arg
+    typeof arg === "string" ? chalk.gray(arg) : arg,
   );
 
   // Call the original debug function with the colored arguments
@@ -34,7 +34,7 @@ async function main(debug: Boolean): Promise<void> {
   // Read prompt from .prompt.md file
   const prompt = fs.readFileSync(
     path.join(getRootDir(), ".prompt.md"),
-    "utf-8"
+    "utf-8",
   );
 
   await agent.runPrompt(prompt);
