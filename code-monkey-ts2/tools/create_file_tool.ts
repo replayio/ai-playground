@@ -1,9 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
 import { z } from "zod";
-import { makeFilePath } from "./utils";
 import { instrument, currentSpan } from "../instrumentation";
 import { IOTool } from "./io_tool";
+import { CodeContext } from "../code_context";
 
 const schema = z.object({
   fname: z.string().describe("Name of the file to create."),
@@ -18,6 +18,10 @@ export class CreateFileTool extends IOTool {
   description = "Create a new file with optional content";
   schema = schema;
 
+  constructor(codeContext: CodeContext) {
+    super(codeContext);
+  }
+
   @instrument("Tool._call", { tool: "CreateFileTool" })
   async _call({ fname, content }: z.infer<typeof schema>): Promise<string> {
     currentSpan().setAttributes({
@@ -25,7 +29,7 @@ export class CreateFileTool extends IOTool {
       content: content || "",
     });
     try {
-      const filePath = makeFilePath(fname);
+      const filePath = this.codeContext.resolveFile(fname);
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, content || "");
       await this.notifyFileModified(fname);

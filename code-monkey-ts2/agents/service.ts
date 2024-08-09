@@ -1,5 +1,7 @@
+import { CodeContext } from "../code_context";
 import { Agent } from "./agent";
-import { agentsByName } from "./agents";
+import { getAgentByName } from "./agents";
+import { PromptResult } from "./base_agent";
 
 class AgentService {
   agent: Agent;
@@ -7,8 +9,8 @@ class AgentService {
     this.agent = agent;
   }
 
-  async sendPrompt(prompt: string): Promise<string> {
-    console.debug(`Sending prompt to ${this.agent.name}: ${prompt}`);
+  async sendPrompt(prompt: string): Promise<PromptResult> {
+    // console.debug(`Sending prompt to ${this.agent.name}: ${prompt}`);
     return await this.agent.runPrompt(prompt);
   }
 }
@@ -16,12 +18,16 @@ class AgentService {
 const serviceByAgentName: Record<string, AgentService> = Object.create(null);
 export async function getServiceForAgent(
   agentName: string,
+  codeContext: CodeContext
 ): Promise<AgentService> {
   if (serviceByAgentName[agentName]) {
     return serviceByAgentName[agentName];
   }
-  const AgentClass = agentsByName[agentName];
-  const agent = new AgentClass();
+  const AgentClass = getAgentByName(agentName);
+  if (!AgentClass) {
+    throw new Error(`Invalid agent invocation - Agent name does not exist: "${agentName}"`);
+  }
+  const agent = new AgentClass(codeContext);
   await agent.initialize();
 
   const service = new AgentService(agent);

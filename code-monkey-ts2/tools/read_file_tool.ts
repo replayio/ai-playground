@@ -1,24 +1,29 @@
-import { StructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import { makeFilePath, readFileContent } from "./utils";
+import { readFileContent } from "./utils";
 import { instrument, currentSpan } from "../instrumentation";
+import { IOTool } from './io_tool';
+import { CodeContext } from "../code_context";
 
 const schema = z.object({
   fname: z.string().describe("Name of the file to edit."),
 });
 
-export class ReadFileTool extends StructuredTool {
+export class ReadFileTool extends IOTool {
   name = "read_file";
   description =
-    "Read the contents of the file of given name.  can be used as a way to check for file existence.";
+    "Read the contents of the file of given name.";
   schema = schema;
+
+  constructor(codeContext: CodeContext) {
+    super(codeContext);
+  }
 
   @instrument("Tool._call", { tool: "ReadFileTool" })
   async _call({ fname }: z.infer<typeof schema>): Promise<string> {
     currentSpan().setAttributes({
       fname,
     });
-    const filePath = makeFilePath(fname);
+    const filePath = this.codeContext.resolveFile(fname);
     try {
       const content = await readFileContent(filePath);
       return `${content}`;

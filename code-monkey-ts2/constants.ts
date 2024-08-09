@@ -1,6 +1,6 @@
 import path from "path";
 
-function getSrcDir(): string {
+export function getSrcDir(): string {
   // presumably __dirname is absolute, but just to be consistent everywhere
   return path.resolve(__dirname);
 }

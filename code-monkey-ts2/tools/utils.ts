@@ -17,12 +17,12 @@ export function getFilenameWithoutExtension(filename: string): string {
 }
 
 export async function readFileContent(filePath: string): Promise<string> {
-  return await readFile(filePath, "utf-8");
+  return (await readFile(filePath, "utf-8")).toString();
 }
 
 export async function writeFileContent(
   filePath: string,
-  content: string,
+  content: string
 ): Promise<void> {
   await writeFile(filePath, content, "utf-8");
 }
@@ -61,7 +61,7 @@ export function makeFilePath(name: string): string {
   const filePath = path.resolve(getArtifactsDir(), name);
   if (!filePath.startsWith(getArtifactsDir())) {
     throw new Error(
-      "Access to file outside artifacts directory is not allowed",
+      "Access to file outside artifacts directory is not allowed"
     );
   }
   return filePath;
@@ -91,7 +91,7 @@ export function showDiff(originalFile: string, modifiedFile: string): void {
     console.log("File deleted.");
   } else {
     throw new Error(
-      `Could not diff files. Neither file exists: ${originalFile} and ${modifiedFile}`,
+      `Could not diff files. Neither file exists: ${originalFile} and ${modifiedFile}`
     );
   }
 }

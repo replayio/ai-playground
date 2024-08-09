@@ -15,20 +15,11 @@ import {
   // TODO    CADependencyGraphTool,
 } from "../tools";
 import { CodeContext } from "../code_context";
-import { Agent } from "./agent";
-import { getArtifactsDir, getRootDir } from "../constants";
+import { Agent, AgentConstructor } from "./agent";
 
-let defaultCodeContext: CodeContext | null = null;
-async function getDefaultCodeContext(): Promise<CodeContext> {
-  if (defaultCodeContext === null) {
-    defaultCodeContext = new CodeContext(getRootDir(), getArtifactsDir());
-    await defaultCodeContext.indexFiles();
-  }
-  return defaultCodeContext;
-}
 
 export class EngineeringPlanner extends Agent {
-  constructor() {
+  constructor(codeContext: CodeContext) {
     super(
       "EngineeringPlanner",
       `
@@ -40,13 +31,14 @@ export class EngineeringPlanner extends Agent {
 6. You are enthusiastic about working with the user on making sure that all requirements are understood and implemented.
 7. When breaking down tasks, consider grouping related changes to minimize redundant work by the Coder.
 `,
-      [new InvokeAgentTool(["Engineer"])],
+      [new InvokeAgentTool(["Engineer"], codeContext)],
+      codeContext
     );
   }
 }
 
 export class Engineer extends Agent {
-  constructor() {
+  constructor(codeContext: CodeContext) {
     super(
       "Engineer",
       `
@@ -59,13 +51,14 @@ export class Engineer extends Agent {
 7. TODO: Implement a mechanism to subdivide engineering tasks into smaller tasks upon discovery.
 8. Provide clear and detailed instructions to the Coder agent to minimize the need for clarifications.
 `,
-      [new InvokeAgentTool(["CodeAnalyst", "Coder", "Debugger"])],
+      [new InvokeAgentTool(["CodeAnalyst", "Coder", "Debugger"], codeContext)],
+      codeContext
     );
   }
 }
 
 export class CodeAnalyst extends Agent {
-  constructor() {
+  constructor(codeContext: CodeContext) {
     super(
       "CodeAnalyst",
       `
@@ -76,20 +69,19 @@ export class CodeAnalyst extends Agent {
 5. Present your findings in a structured format that can be easily parsed and utilized by other agents.
 `,
       [
-        new ReadFileTool(),
+        new ReadFileTool(codeContext),
         // TODO new CAImportsTool(),
         // TODO new CAExportsTool(),
         // TODO new CAASTAnalyzerTool(),
-        // TODO new CADependencyGraphTool(),
+        // TODO new CADependencyGraphTool()
       ],
+      codeContext
     );
   }
 }
 
 export class Coder extends Agent {
-  context: CodeContext;
-
-  constructor() {
+  constructor(codeContext: CodeContext) {
     super(
       "Coder",
       `
@@ -100,37 +92,20 @@ export class Coder extends Agent {
 5. For simpler tasks, you have the autonomy to make decisions and implement changes without consulting other agents.
 `,
       [
-        new ReadFileTool(),
-        new WriteFileTool(),
-        new CreateFileTool(),
-        new RenameFileTool(),
-        new DeleteFileTool(),
-        new ReplaceInFileTool(),
+        new ReadFileTool(codeContext),
+        new WriteFileTool(codeContext),
+        new CreateFileTool(codeContext),
+        new RenameFileTool(codeContext),
+        new DeleteFileTool(codeContext),
+        new ReplaceInFileTool(codeContext),
       ],
+      codeContext
     );
-  }
-
-  async initialize(): Promise<void> {
-    this.setContext(await getDefaultCodeContext());
-  }
-
-  setContext(context: CodeContext): void {
-    this.context = context;
-  }
-
-  preparePrompt(prompt: string): string {
-    // TODO: known_files cost several hundred tokens for a small project.
-    return `
-These are all files: ${this.context.knownFiles}.
-Query: ${prompt.trim()}
-    `.trim();
   }
 }
 
 export class Debugger extends Agent {
-  context: CodeContext;
-
-  constructor() {
+  constructor(codeContext: CodeContext) {
     super(
       "Debugger",
       `
@@ -144,32 +119,15 @@ export class Debugger extends Agent {
       [
         // TODO new RunTestTool(),
         // TODO new ExecTool(),
-        new InvokeAgentTool(["Coder"]),
+        new InvokeAgentTool(["Coder"], codeContext),
       ],
+      codeContext
     );
-  }
-
-  async initialize(): Promise<void> {
-    this.setContext(await getDefaultCodeContext());
-  }
-
-  setContext(context: CodeContext): void {
-    this.context = context;
-  }
-
-  preparePrompt(prompt: string): string {
-    // TODO: known_files cost several hundred tokens for a small project.
-    return `
-These are all files: ${this.context.knownFiles}.
-Query: ${prompt.trim()}
-    `.trim();
   }
 }
 
 export class Manager extends Agent {
-  context: CodeContext;
-
-  constructor() {
+  constructor(codeContext: CodeContext) {
     super(
       "Manager",
       `
@@ -183,36 +141,24 @@ export class Manager extends Agent {
 7. If the response from engineering is acceptable, relay it to the user.
 `,
       [
-        // new InvokeAgentTool(["EngineeringPlanner"]),
-        new InvokeAgentTool(["Coder"]),
+        // new InvokeAgentTool(["EngineeringPlanner"],codeContext),
+        new InvokeAgentTool(["Coder"], codeContext),
         // TODO new AskUserTool(),
       ],
+      codeContext
     );
-  }
-
-  async initialize(): Promise<void> {
-    this.setContext(await getDefaultCodeContext());
-  }
-
-  setContext(context: CodeContext): void {
-    this.context = context;
-  }
-
-  preparePrompt(prompt: string): string {
-    // TODO: knownFiles cost several hundred tokens for a small project.
-    return `
-These are all files: ${this.context.knownFiles}.
-Query: ${prompt.trim()}
-    `.trim();
   }
 }
 
-type AgentConstructor = new () => Agent;
 const agents = [Manager, EngineeringPlanner, CodeAnalyst, Coder, Debugger];
-export const agentsByName: Record<string, AgentConstructor> = agents.reduce(
+const agentsByName: Record<string, AgentConstructor> = agents.reduce(
   (acc, agent) => {
     acc[agent.name] = agent;
     return acc;
   },
-  {},
+  {}
 );
+
+export function getAgentByName(name: string): AgentConstructor {
+  return agentsByName[name];
+}

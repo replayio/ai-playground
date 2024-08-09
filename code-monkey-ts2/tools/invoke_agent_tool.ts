@@ -5,6 +5,7 @@ import { instrument, currentSpan } from "../instrumentation";
 
 import { getServiceForAgent } from "../agents";
 import { AsyncLocalStorage } from "async_hooks";
+import { CodeContext } from "../code_context";
 
 const schema = z.object({
   agent_name: z.string().describe("Name of the agent to invoke"),
@@ -30,11 +31,15 @@ export class InvokeAgentTool extends StructuredTool {
   description: string; // filled in dynamically in the constructor
 
   allowedAgents: string[];
+  codeContext: CodeContext;
 
-  constructor(allowedAgents: string[]) {
+  constructor(allowedAgents: string[], codeContext: CodeContext) {
     super();
     this.allowedAgents = allowedAgents.slice();
-    this.description = `Invokes another agent by name and runs it with a given prompt. Allowed agents: ${this.allowedAgents.join(", ")}`;
+    this.description = `Invokes another agent by name and runs it with a given prompt. Allowed agents: ${this.allowedAgents.join(
+      ", "
+    )}`;
+    this.codeContext = codeContext;
   }
 
   @instrument("Tool._call", { tool: "InvokeAgentTool" })
@@ -46,10 +51,10 @@ export class InvokeAgentTool extends StructuredTool {
 
     try {
       if (!this.allowedAgents.includes(agent_name)) {
-        throw new Error(`Agent '${agent_name}' not found or not allowed.`);
+        throw new Error(`[Agent '${agent_name}'] not found or not allowed.`);
       }
 
-      const service = await getServiceForAgent(agent_name);
+      const service = await getServiceForAgent(agent_name, this.codeContext);
 
       const response = await exitLangChainAsyncLocalStorage(() => {
         return service.sendPrompt(prompt);
@@ -57,13 +62,17 @@ export class InvokeAgentTool extends StructuredTool {
 
       // getLogger(__filename).debug(`[invoke_agent TOOL] Successfully invoked agent '${agent_name}' and received a response: ${JSON.stringify(response)}`);
       console.debug(
-        `[invoke_agent TOOL] Successfully invoked agent '${agent_name}' and received a response: ${JSON.stringify(response)}`,
+        `[invoke_agent TOOL] Successfully invoked agent '${agent_name}' and received a response: "${JSON.stringify(
+          response.trim()
+        )}"`
       );
       return response;
     } catch (err) {
-      const error_message = `Failed to invoke agent '${agent_name}': ${err instanceof Error ? err.message : String(err)}`;
+      const error_message = `Failed to invoke agent '${agent_name}': ${
+        err instanceof Error ? err.message : String(err)
+      }`;
       // logger.error(error_message);
-      console.trace(err);
+      console.error(err.stack);
       return error_message;
     }
   }

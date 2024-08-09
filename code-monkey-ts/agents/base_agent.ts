@@ -16,7 +16,7 @@ abstract class BaseAgent {
 
     abstract preparePrompt(prompt: string): string;
 
-    abstract handleCompletion(hadAnyText: boolean, modifiedFiles: Set<string>): void;
+    abstract handleCompletion(modifiedFiles: Set<string>): void;
 }
 
 export { BaseAgent };

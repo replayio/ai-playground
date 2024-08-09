@@ -3,22 +3,23 @@ import path from "path";
 import chalk from "chalk";
 
 import { Manager } from "./agents";
-import { getRootDir } from "./constants";
+import { getArtifactsDir, getRootDir, getSrcDir } from "./constants";
 import { instrument, initializeTracer } from "./instrumentation";
 import { initializeConfig } from "./config";
+import { initDebugLogging } from "./utils/logUtil";
+import { CodeContext } from "./code_context";
+import runAgentPrompt from "./agents/runAgentPrompt";
 // TODO import { setup_logging } from "./util/logs";
 
-// Monkey patch console.debug
-const originalDebug = console.debug;
-console.debug = (...args: any[]): void => {
-  // Use chalk.gray() to color the output
-  const grayArgs = args.map((arg) =>
-    typeof arg === "string" ? chalk.gray(arg) : arg,
-  );
+initDebugLogging();
 
-  // Call the original debug function with the colored arguments
-  return originalDebug.apply(console, grayArgs);
-};
+let defaultCodeContext: CodeContext | null = null;
+function getDefaultCodeContext(): CodeContext {
+  if (!defaultCodeContext) {
+    defaultCodeContext = new CodeContext(getSrcDir(), getArtifactsDir());
+  }
+  return defaultCodeContext;
+}
 
 class CLI {
   // TODO(toshok) decorators not available here :thumbs-down:
@@ -26,19 +27,15 @@ class CLI {
   static async main(debug: Boolean): Promise<void> {
     // TODO setup_logging(debug)
     console.log(chalk.green.bold("Welcome to the AI Playground!"));
-
     console.log(chalk.blue.bold("Running Manager agent..."));
 
-    const agent = new Manager();
-    await agent.initialize();
-
     // Read prompt from .prompt.md file
-    const prompt = fs.readFileSync(
-      path.join(getRootDir(), ".prompt.md"),
-      "utf-8",
-    );
+    const prompt = fs
+      .readFileSync(path.join(getRootDir(), ".prompt.md"), "utf-8")
+      .trim();
 
-    await agent.runPrompt(prompt);
+    const codeContext = getDefaultCodeContext();
+    await runAgentPrompt(Manager, codeContext, prompt);
     console.log(chalk.green.bold("DONE"));
   }
 }

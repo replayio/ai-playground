@@ -1,9 +1,8 @@
 import * as fs from "fs";
-import * as path from "path";
 import { z } from "zod";
-import { makeFilePath } from "./utils";
 import { instrument, currentSpan } from "../instrumentation";
 import { IOTool } from "./io_tool";
+import { CodeContext } from "../code_context";
 
 const schema = z.object({
   old_name: z.string().describe("Current name of the file."),
@@ -15,6 +14,10 @@ export class RenameFileTool extends IOTool {
   description = "Rename a file, given old and new names";
   schema = schema;
 
+  constructor(codeContext: CodeContext) {
+    super(codeContext);
+  }
+
   @instrument("Tool._call", { tool: "RenameFileTool" })
   async _call({ old_name, new_name }: z.infer<typeof schema>): Promise<string> {
     currentSpan().setAttributes({
@@ -23,8 +26,8 @@ export class RenameFileTool extends IOTool {
     });
 
     try {
-      const oldPath = makeFilePath(old_name);
-      const newPath = makeFilePath(new_name);
+      const oldPath = this.codeContext.resolveFile(old_name);
+      const newPath = this.codeContext.resolveFile(new_name);
 
       fs.renameSync(oldPath, newPath);
 

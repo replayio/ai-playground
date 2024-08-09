@@ -9,11 +9,12 @@ import { StructuredTool } from "@langchain/core/tools";
 
 import { instrument, currentSpan } from "../instrumentation";
 import { getAgentConfig } from "../config";
-import { getRootDir, getArtifactsDir } from "../constants";
+import { getArtifactsDir } from "../constants";
 import { MSN } from "../models";
 import { showDiff, askUser } from "../tools/utils";
 
-import { BaseAgent } from "./base_agent";
+import { BaseAgent, PromptResult } from "./base_agent";
+import { CodeContext } from "../code_context";
 
 function debugLog(...args: any[]) {
   console.debug(...args);
@@ -27,8 +28,8 @@ export abstract class Agent extends BaseAgent {
   };
 
   // TODO(class decorator here) @instrument("Agent.__init__", ["msn_str"])
-  constructor(name: string, systemPrompt: string, tools: StructuredTool[]) {
-    super(name, systemPrompt, tools);
+  constructor(name: string, systemPrompt: string, tools: StructuredTool[], codeContext?: CodeContext) {
+    super(name, systemPrompt, tools, codeContext);
 
     console.log(`Agent ${name} constructor`);
     const { msn: msn_str } = getAgentConfig(name);
@@ -44,14 +45,30 @@ export abstract class Agent extends BaseAgent {
     });
   }
 
-  async initialize(): Promise<void> {}
+  /**
+   * The `initialize` method cannot be overwritten.
+   * If needed, override `handleInitialize` instead.
+   */
+  public readonly initialize = async (): Promise<void> => {
+    await this.codeContext?.indexFiles();
+    await this.handleInitialize();
+  }
+
+  protected async handleInitialize(): Promise<void> { }
 
   preparePrompt(prompt: string): string {
-    return prompt;
+    // TODO: known_files cost several hundred tokens for a small project.
+    if (this._codeContext) {
+      return `
+These are all files: \`[${this._codeContext.knownFiles}]\`.
+${prompt.trim()}
+    `.trim();
+    }
+    return prompt.trim();
   }
 
   @instrument("Agent.runPrompt")
-  async runPrompt(prompt: string): Promise<string> {
+  async runPrompt(prompt: string): Promise<PromptResult> {
     currentSpan().setAttributes({
       agent: this.name,
       prompt,
@@ -60,7 +77,9 @@ export abstract class Agent extends BaseAgent {
     // logger = get_logger(__name__)
     // logger.info(`Running prompt: {prompt}`);
 
-    console.log(`[AGENT ${this.name}] Running prompt: ${prompt}`);
+    console.log(
+      `[AGENT ${this.name}] Running prompt: ${JSON.stringify(prompt)}`
+    );
     const system = new SystemMessage({
       content: this.systemPrompt,
     });
@@ -78,7 +97,7 @@ export abstract class Agent extends BaseAgent {
       {
         configurable: this.config.configurable,
         version: "v2",
-      },
+      }
     )) {
       const kind = event.event;
 
@@ -89,7 +108,8 @@ export abstract class Agent extends BaseAgent {
         kind != "on_chain_start"
       ) {
         debugLog(
-          `[AGENT ${this.name}] received event: ${JSON.stringify(event, null, 2)}`,
+          `[AGENT ${this.name}] received event: ${kind}`
+          // `[AGENT ${this.name}] received event: ${JSON.stringify(event, null, 2)}`,
         );
       }
 
@@ -112,7 +132,9 @@ export abstract class Agent extends BaseAgent {
         const tool_name = event.name;
         const tool_input = event.data.input;
         debugLog(
-          `[AGENT ${this.name}] ${kind} - name=${tool_name}, input=${JSON.stringify(tool_input)}`,
+          `[AGENT ${
+            this.name
+          }] ${kind} - name=${tool_name}, input=${JSON.stringify(tool_input)}`
         );
         continue;
       }
@@ -121,7 +143,9 @@ export abstract class Agent extends BaseAgent {
         const tool_name = event.name;
         const tool_output = event.data.output.content.slice(0, 20);
         debugLog(
-          `[AGENT ${this.name}] ${kind} - name=${tool_name}, output=${JSON.stringify(tool_output)}`,
+          `[AGENT ${
+            this.name
+          }] ${kind} - name=${tool_name}, output=${JSON.stringify(tool_output)}`
         );
         continue;
       }
@@ -145,7 +169,7 @@ export abstract class Agent extends BaseAgent {
           modified_files.add(event.data as string);
         } else {
           debugLog(
-            `[AGENT ${this.name}] Unknown prompt event: '${event["name"]}'`,
+            `[AGENT ${this.name}] Unknown prompt event: '${event["name"]}'`
           );
         }
         continue;
@@ -154,8 +178,9 @@ export abstract class Agent extends BaseAgent {
 
     await this.handleCompletion(modified_files);
 
-    debugLog(`[AGENT ${this.name}] runPrompt result: "${result || ""}"`);
-    return result || "";
+    result = result?.trim() || "";
+    debugLog(`[AGENT ${this.name}] runPrompt END: "${result}"`);
+    return result;
   }
 
   @instrument("Agent.handleCompletion")
@@ -177,12 +202,12 @@ export abstract class Agent extends BaseAgent {
       agent: this.name,
       file,
     });
-    const original_file = path.join(getRootDir(), file);
+    const original_file = path.join(this.useCodeContext()?.originalDir, file);
     const modified_file = path.join(getArtifactsDir(), file);
     showDiff(original_file, modified_file);
     const response = (
       await askUser(
-        `Do you want to apply the changes to ${file} (diff shown in VSCode)? (Y/n): `,
+        `Do you want to apply the changes to ${file} (diff shown in VSCode)? (Y/n): `
       )
     ).toLowerCase();
 
@@ -212,3 +237,5 @@ export abstract class Agent extends BaseAgent {
     fs.writeFileSync(original_file, modified_content);
   }
 }
+
+export type AgentConstructor = new (codeContext: CodeContext) => Agent;

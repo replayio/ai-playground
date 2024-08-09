@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { makeFilePath, readFileContent, writeFileContent } from "./utils";
+import { readFileContent, writeFileContent } from "./utils";
 import { instrument, currentSpan } from "../instrumentation";
 import { IOTool } from "./io_tool";
+import { CodeContext } from "../code_context";
 
 const schema = z.object({
   fname: z.string().describe("The path to the file to be modified."),
@@ -14,6 +15,10 @@ export class ReplaceInFileTool extends IOTool {
   description =
     "Replace all occurrences of given text in a file with the replacement";
   schema = schema;
+
+  constructor(codeContext: CodeContext) {
+    super(codeContext);
+  }
 
   @instrument("Tool._call", { tool: "ReplaceInFileTool" })
   async _call({
@@ -28,8 +33,8 @@ export class ReplaceInFileTool extends IOTool {
     });
 
     try {
-      const filePath = makeFilePath(fname);
-      const fileContent = (await readFileContent(filePath)).toString();
+      const filePath = this.codeContext.resolveFile(fname);
+      const fileContent = await readFileContent(filePath);
 
       const newContent = fileContent.replaceAll(oldText, newText);
       if (newContent !== fileContent) {
