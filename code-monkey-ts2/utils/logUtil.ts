@@ -8,7 +8,7 @@ export function initDebugLogging(): void {
     // Use chalk.gray() to color the output
     const formattedArgs = args.map((arg) =>
       // typeof arg === "string" ?  : arg
-      typeof arg === "string" ? boxen(chalk.black(arg), { backgroundColor: "blueBright", dimBorder: true }) : arg
+      typeof arg === "string" ? boxen(chalk.black(arg), { /*backgroundColor: "greenBright",*/ dimBorder: true }) : arg
     );
 
     // Call the original debug function with the colored arguments
