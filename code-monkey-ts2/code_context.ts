@@ -9,67 +9,11 @@ const writeFile = util.promisify(fs.writeFile);
 const mkdir = util.promisify(fs.mkdir);
 const copyFile = util.promisify(fs.copyFile);
 
-// Simple implementation of gitignore-style pattern matching
-function matchesGitIgnorePattern(filePath: string, pattern: string): boolean {
-  const regexPattern = pattern
-    .replace(/\./g, "\\.")
-    .replace(/\*/g, ".*")
-    .replace(/\?/g, ".");
-  const regex = new RegExp(regexPattern);
-  // console.log(`Checking ${filePath} against ${regexPattern} => ${regex.test(filePath)}`);
-  return regex.test(filePath);
+function patternToRegExp(pattern: string): RegExp {
+  return new RegExp(
+    pattern.replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, "."),
+  );
 }
-
-async function getAllSrcFiles(rootDir = getRootDir()): Promise<string[]> {
-  const srcFiles: string[] = [];
-
-  // Read .gitignore patterns
-  let gitignorePatterns: string[] = [".git"];
-
-  // Check current directory and up to max 3 parent directories until we hit our root dir
-  for (let i = 0; i < 4; i++) {
-    const dirPath = path.resolve(__dirname, ...Array(i).fill(".."));
-    const gitignorePath = path.join(dirPath, ".gitignore");
-
-    console.debug(`checking gitignore path ${gitignorePath}`);
-    if (fs.existsSync(gitignorePath)) {
-      console.debug("   found it");
-      const gitignoreContent = await readFile(gitignorePath, "utf-8");
-      gitignorePatterns = gitignorePatterns.concat(
-        gitignoreContent.split("\n").filter((l) => l.trim() !== ""),
-      );
-    }
-
-    if (dirPath === rootDir) {
-      break;
-    }
-  }
-
-  // Walk through the directory
-  const walk = (dir: string): void => {
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-      const filePath = path.join(dir, file);
-      const stat = fs.statSync(filePath);
-      if (stat.isDirectory()) {
-        walk(filePath);
-      } else {
-        const relPath = path.relative(rootDir, filePath);
-        if (
-          !gitignorePatterns.some((pattern) =>
-            matchesGitIgnorePattern(relPath, pattern),
-          )
-        ) {
-          srcFiles.push(relPath);
-        }
-      }
-    }
-  };
-
-  walk(rootDir);
-  return srcFiles;
-}
-
 class CodeContext {
   knownFiles: string[] = [];
 
@@ -81,7 +25,7 @@ class CodeContext {
   @instrument("CodeContext.indexFiles")
   async indexFiles(): Promise<void> {
     // Get all files.
-    const filesToCopy = await getAllSrcFiles(this.rootDir);
+    const filesToCopy = await this.getAllSrcFiles(this.rootDir);
     console.log(`DDBG init ${filesToCopy}`);
     this.knownFiles = filesToCopy;
 
@@ -99,16 +43,67 @@ class CodeContext {
       }
     }
   }
+
+  @instrument("CodeContext.getAllSrcFiles")
+  async getAllSrcFiles(rootDir = getRootDir()): Promise<string[]> {
+    const srcFiles: string[] = [];
+
+    // Build up a list of patterns to check against paths to skip.  start with
+    // some defaults, then look for .gitignore files up from the current directory.
+    let skipRegExps: RegExp[] = [patternToRegExp(".git/")];
+
+    // Check current directory and up to max 3 parent directories until we hit our root dir
+    for (let i = 0; i < 4; i++) {
+      const dirPath = path.resolve(__dirname, ...Array(i).fill(".."));
+      const gitignorePath = path.join(dirPath, ".gitignore");
+
+      console.debug(`checking gitignore path ${gitignorePath}`);
+      if (fs.existsSync(gitignorePath)) {
+        console.debug("   found it");
+        const gitignorePatterns = ((await readFile(gitignorePath, "utf-8")).split("\n").filter((l) => l.trim() !== ""));
+        skipRegExps = skipRegExps.concat(gitignorePatterns.map(patternToRegExp));
+      }
+
+      if (dirPath === rootDir) {
+        break;
+      }
+    }
+
+    // Walk through the directory
+    const walk = (dir: string): void => {
+      const files = fs.readdirSync(dir);
+      for (const file of files) {
+        const filePath = path.join(dir, file);
+        const stat = fs.statSync(filePath);
+        const relPath = path.relative(rootDir, filePath);
+        if (
+          skipRegExps.some((regex) => regex.test(relPath))
+        ) {
+          continue;
+        }
+
+        if (stat.isDirectory()) {
+          walk(filePath);
+        } else {
+          srcFiles.push(relPath);
+        }
+      }
+    };
+
+    walk(rootDir);
+    return srcFiles;
+  }
 }
 
 // Main execution
 if (require.main === module) {
-  (async () => {
-    const files = await getAllSrcFiles();
+  const codeContext = new CodeContext(getRootDir(), getArtifactsDir());
+  (async (): Promise<void> => {
+    const files = await codeContext.getAllSrcFiles();
     for (const file of files) {
       console.log(file);
     }
   })();
 }
 
-export { CodeContext, getAllSrcFiles };
+export { CodeContext };
