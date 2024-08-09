@@ -3,8 +3,9 @@ import path from "path";
 import chalk from "chalk";
 
 import { Manager } from "./agents";
-import { loadEnvironment, getRootDir } from "./constants";
+import { getRootDir } from "./constants";
 import { /*instrument,*/ initializeTracer } from "./instrumentation";
+import { initializeConfig } from "./config";
 // TODO import { setup_logging } from "./util/logs";
 
 // Monkey patch console.debug
@@ -41,7 +42,7 @@ async function main(debug: Boolean): Promise<void> {
 }
 
 if (require.main === module) {
-  loadEnvironment();
+  initializeConfig();
 
   initializeTracer();
 

@@ -8,7 +8,8 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { StructuredTool } from "@langchain/core/tools";
 
 import { instrument, currentSpan } from "../instrumentation";
-import { getRootDir, getArtifactsDir, getAgentMSN } from "../constants";
+import { getAgentConfig } from "../config";
+import { getRootDir, getArtifactsDir } from "../constants";
 import { MSN } from "../models";
 import { showDiff, askUser } from "../tools/utils";
 
@@ -30,7 +31,7 @@ export abstract class Agent extends BaseAgent {
         super(name, systemPrompt, tools);
 
         console.log(`Agent ${name} constructor`);
-        const msn_str = getAgentMSN();
+        const { msn: msn_str } = getAgentConfig(name);
         const msn = MSN.from_string(msn_str);
 
         // a checkpointer + the thread_id below gives the model a way to save its
@@ -79,7 +80,7 @@ export abstract class Agent extends BaseAgent {
             { 
                 configurable: this.config.configurable,
                 version: "v2",
-            }
+            },
         )) {
             const kind = event.event;
 
