@@ -9,3 +9,7 @@ export function loadEnvironment(): void {
 export function getAgentMSNEnvVar(agentName: string): string | undefined {
   return process.env[`${agentName.toUpperCase()}_MSN`];
 }
+
+export function getDefaultAgentMSNEnvVar(): string | undefined {
+  return process.env.AI_MSN || process.env.DEFAULT_MSN;
+}

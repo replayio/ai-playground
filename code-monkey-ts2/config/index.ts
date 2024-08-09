@@ -1,5 +1,9 @@
 import { loadAgentsConfig } from "./yaml";
-import { getAgentMSNEnvVar, loadEnvironment } from "./env";
+import {
+  getAgentMSNEnvVar,
+  getDefaultAgentMSNEnvVar,
+  loadEnvironment,
+} from "./env";
 import { AgentConfig, AgentsConfig } from "./types";
 
 let agentsConfig: AgentsConfig;
@@ -18,16 +22,21 @@ export function getAgentConfig(agentName: string): AgentConfig {
   }
 
   const agentConfig = agentsConfig[agentName];
+  if (agentConfig) {
+    return { msn: agentConfig.msn };
+  }
 
-  if (!agentConfig) {
-    // try loading "default"
-    const defaultAgentConfig = agentsConfig["default"];
-    if (!defaultAgentConfig) {
-      throw new Error(`No agent config found for ${agentName}`);
-    }
+  // there wasn't an agent specific one configured.
+  // try loading "default", again with an env var overriding it.
+  const defaultMsn = getDefaultAgentMSNEnvVar();
+  if (defaultMsn) {
+    return { msn: defaultMsn };
+  }
 
+  const defaultAgentConfig = agentsConfig["default"];
+  if (defaultAgentConfig) {
     return { msn: defaultAgentConfig.msn };
   }
 
-  return { msn: agentConfig.msn };
+  throw new Error(`No agent config found for ${agentName}`);
 }

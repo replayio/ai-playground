@@ -21,8 +21,6 @@ function loadYamlFile<T extends z.AnyZodObject>(
   const contents = fs.readFileSync(path, "utf8");
   const parsedYaml = yaml.parse(contents);
 
-  console.log(JSON.stringify(parsedYaml.agents, null, 2));
-
   return schema.parse({ agents: parsedYaml.agents });
 }
 
