@@ -79,20 +79,30 @@ export function instrument(name: string, attributes?: Record<string, any>) {
           name,
           { attributes: spanAttributes },
           (span) => {
+            let rv: any;
             try {
-              const rv = originalMethod.apply(this, args);
+              rv = originalMethod.apply(this, args);
+            } catch (e) {
+              span.recordException(e);
+              span.end();
+              throw e;
+            }
 
-              if (rv instanceof Promise) {
-                return rv.then((result: any) => {
+            if (rv instanceof Promise) {
+              return rv.then(
+                (result: any) => {
                   span.end();
                   return result;
-                });
-              }
-
-              span.end();
-            } finally {
-              span.end();
+                },
+                (error: any) => {
+                  span.recordException(error);
+                  span.end();
+                  throw error;
+                },
+              );
             }
+
+            span.end();
           },
         );
       };
