@@ -2,13 +2,12 @@ import fs from "fs";
 import path from "path";
 import chalk from "chalk";
 
-import { Manager } from "./agents";
 import { getArtifactsDir, getRootDir, getSrcDir } from "./constants";
 import { instrument } from "./instrumentation";
 import { initDebugLogging } from "./utils/logUtil";
 import { CodeContext } from "./code_context";
 import runAgentPrompt from "./agents/runAgentPrompt";
-import { initializeCodeMonkey } from "./code-monkey";
+import { initializeCodeMonkey, shutdownCodeMonkey } from "./code-monkey";
 // TODO import { setup_logging } from "./util/logs";
 
 initDebugLogging();
@@ -25,6 +24,7 @@ class CLI {
   // TODO(toshok) decorators not available here :thumbs-down:
   @instrument("CLI.main")
   static async main(debug: Boolean): Promise<void> {
+    const { Manager } = await import("./agents");
     // TODO setup_logging(debug)
     console.log(chalk.green.bold("Welcome to the AI Playground!"));
     console.log(chalk.blue.bold("Running Manager agent..."));
@@ -47,6 +47,7 @@ if (require.main === module) {
   const debug = args.includes("--debug");
 
   CLI.main(debug)
+    .then(shutdownCodeMonkey)
     .then(() => {
       process.exit(0);
     })

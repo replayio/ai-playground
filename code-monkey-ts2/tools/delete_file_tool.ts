@@ -17,7 +17,7 @@ export class DeleteFileTool extends IOTool {
     super(codeContext);
   }
 
-  @instrument("Tool._call", { tool: "DeleteFileTool" })
+  @instrument("Tool._call", { attributes: { tool: "DeleteFileTool" } })
   async _call({ fname }: z.infer<typeof schema>): Promise<string> {
     currentSpan().setAttributes({
       fname,

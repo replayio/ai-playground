@@ -18,7 +18,7 @@ export class RenameFileTool extends IOTool {
     super(codeContext);
   }
 
-  @instrument("Tool._call", { tool: "RenameFileTool" })
+  @instrument("Tool._call", { attributes: { tool: "RenameFileTool" } })
   async _call({ old_name, new_name }: z.infer<typeof schema>): Promise<string> {
     currentSpan().setAttributes({
       old_name,

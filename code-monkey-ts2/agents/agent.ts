@@ -6,8 +6,9 @@ import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { MemorySaver } from "@langchain/langgraph";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { StructuredTool } from "@langchain/core/tools";
+import { Attributes } from "@opentelemetry/api";
 
-import { instrument, currentSpan } from "../instrumentation";
+import { instrument, currentSpan, withKVBaggage } from "../instrumentation";
 import { getAgentConfig } from "../config";
 import { getArtifactsDir } from "../constants";
 import { MSN } from "../models";
@@ -20,7 +21,14 @@ function debugLog(...args: any[]) {
   console.debug(...args);
 }
 
+type TokenUsage = {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+};
+
 export abstract class Agent extends BaseAgent {
+  msn: MSN;
   model: ReturnType<typeof createReactAgent>;
 
   config = {
@@ -37,14 +45,14 @@ export abstract class Agent extends BaseAgent {
     super(name, systemPrompt, tools, codeContext);
 
     console.log(`Agent ${name} constructor`);
-    const { msn: msn_str } = getAgentConfig(name);
-    const msn = MSN.from_string(msn_str);
+    const { msn: msnStr } = getAgentConfig(name);
+    this.msn = MSN.from_string(msnStr);
 
     // a checkpointer + the thread_id below gives the model a way to save its
     // state so we don't have to accumulate the messages ourselves.
     const checkpointer = new MemorySaver();
     this.model = createReactAgent({
-      llm: msn.constructModel(),
+      llm: this.msn.constructModel(),
       tools: this.tools,
       checkpointSaver: checkpointer,
     });
@@ -61,6 +69,15 @@ export abstract class Agent extends BaseAgent {
 
   protected async handleInitialize(): Promise<void> {}
 
+  getKVBaggageAttributes(): Attributes {
+    return {
+      agent: this.name,
+      "msn.service": this.msn.chatModelService,
+      "msn.model_name": this.msn.modelName,
+      "msn.flags": JSON.stringify(this.msn.flags),
+    };
+  }
+
   preparePrompt(prompt: string): string {
     // TODO: known_files cost several hundred tokens for a small project.
     if (this._codeContext) {
@@ -72,12 +89,21 @@ ${prompt.trim()}
     return prompt.trim();
   }
 
-  @instrument("Agent.runPrompt")
   async runPrompt(prompt: string): Promise<PromptResult> {
+    return withKVBaggage(
+      this.getKVBaggageAttributes(),
+      async (): Promise<string> => {
+        return await this._runPrompt(prompt);
+      },
+    );
+  }
+
+  @instrument("Agent.runPrompt")
+  private async _runPrompt(prompt: string): Promise<PromptResult> {
     currentSpan().setAttributes({
-      agent: this.name,
       prompt,
     });
+
     // TODO
     // logger = get_logger(__name__)
     // logger.info(`Running prompt: {prompt}`);
@@ -95,6 +121,12 @@ ${prompt.trim()}
     const modified_files: Set<string> = new Set();
     let result: string | null = null;
 
+    const tokenUsage: TokenUsage = {
+      input_tokens: 0,
+      output_tokens: 0,
+      total_tokens: 0,
+    };
+
     for await (const event of this.model.streamEvents(
       {
         messages: [system, msg],
@@ -104,8 +136,15 @@ ${prompt.trim()}
         version: "v2",
       }
     )) {
-      const kind = event.event;
+      if (event.data?.output?.usage_metadata) {
+        const { input_tokens, output_tokens, total_tokens } =
+          event.data.output.usage_metadata;
+        tokenUsage.input_tokens += input_tokens;
+        tokenUsage.output_tokens += output_tokens;
+        tokenUsage.total_tokens += total_tokens;
+      }
 
+      const kind = event.event;
       if (
         kind != "on_chat_model_stream" &&
         kind != "on_chain_end" &&
@@ -156,14 +195,10 @@ ${prompt.trim()}
       }
 
       if (kind == "on_chat_model_end") {
-        if (Array.isArray(event.data.output["content"])) {
-          // anthropic seems give us content as a list?
-          result = event.data.output["content"][0]["text"];
-        } else {
-          result = event.data.output.content;
-        }
+        const { content } = event.data.output;
+        // anthropic seems give us content as a list?
+        result = Array.isArray(content) ? content[0]["text"] : content;
         debugLog(`[AGENT ${this.name}] RESULT: ${result}`);
-        // TODO(toshok) still need to compute tokens
         continue;
       }
 
@@ -181,6 +216,10 @@ ${prompt.trim()}
       }
     }
 
+    if (tokenUsage.total_tokens > 0) {
+      currentSpan().setAttributes(tokenUsage);
+    }
+
     await this.handleCompletion(modified_files);
 
     result = result?.trim() || "";
@@ -189,9 +228,8 @@ ${prompt.trim()}
   }
 
   @instrument("Agent.handleCompletion")
-  async handleCompletion(modified_files: Set<string>): Promise<void> {
+  private async handleCompletion(modified_files: Set<string>): Promise<void> {
     currentSpan().setAttributes({
-      agent: this.name,
       num_modified_files: modified_files.size,
       modified_files: Array.from(modified_files).join(", "),
     });
@@ -206,9 +244,8 @@ ${prompt.trim()}
   }
 
   @instrument("Agent.handle_modified_file")
-  async handleModifiedFile(file: string): Promise<void> {
+  private async handleModifiedFile(file: string): Promise<void> {
     currentSpan().setAttributes({
-      agent: this.name,
       file,
     });
     const original_file = path.join(this.useCodeContext().originalDir, file);
@@ -234,9 +271,8 @@ ${prompt.trim()}
   }
 
   @instrument("Agent.applyChanges")
-  applyChanges(original_file: string, modified_file: string): void {
+  private applyChanges(original_file: string, modified_file: string): void {
     currentSpan().setAttributes({
-      agent: this.name,
       original_file,
       modified_file,
     });

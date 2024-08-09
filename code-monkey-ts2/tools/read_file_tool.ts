@@ -18,7 +18,7 @@ export class ReadFileTool extends IOTool {
     super(codeContext);
   }
 
-  @instrument("Tool._call", { tool: "ReadFileTool" })
+  @instrument("Tool._call", { attributes: { tool: "ReadFileTool" } })
   async _call({ fname }: z.infer<typeof schema>): Promise<string> {
     currentSpan().setAttributes({
       fname,

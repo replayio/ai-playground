@@ -7,7 +7,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "experimentalDecorators": true,
+    "experimentalDecorators": false,
     "emitDecoratorMetadata": true,
     // Needed for decorators?
     "useDefineForClassFields": false,
@@ -28,7 +28,7 @@
     "noEmit": true
   },
   "include": [
-    "code-monkey-ts/**/*",
+    "code-monkey-ts2/**/*",
     "eslint.config.js"
   ],
   "exclude": [

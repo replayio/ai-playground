@@ -27,6 +27,4 @@ export abstract class BaseAgent {
   abstract runPrompt(prompt: string): Promise<PromptResult>;
 
   abstract preparePrompt(prompt: string): string;
-
-  abstract handleCompletion(modified_files: Set<string>): void;
 }

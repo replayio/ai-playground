@@ -22,7 +22,7 @@ export class CreateFileTool extends IOTool {
     super(codeContext);
   }
 
-  @instrument("Tool._call", { tool: "CreateFileTool" })
+  @instrument("Tool._call", { attributes: { tool: "CreateFileTool" } })
   async _call({ fname, content }: z.infer<typeof schema>): Promise<string> {
     currentSpan().setAttributes({
       fname,

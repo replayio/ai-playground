@@ -15,7 +15,10 @@ function constructAnthropic(
 ): BaseChatModel {
   return new ChatAnthropic({
     model: modelName,
-    clientOptions: extra_flags, // unclear if this is clientOptions or if we should splat extra_flags into the object
+    streamUsage: true,
+    clientOptions: {
+      ...extra_flags, // unclear if this is clientOptions or if we should splat extra_flags into the object
+    },
   });
 }
 
@@ -23,7 +26,11 @@ function constructOpenai(
   modelName: string,
   extra_flags: Record<string, string>,
 ): BaseChatModel {
-  return new ChatOpenAI({ model: modelName, modelKwargs: extra_flags });
+  return new ChatOpenAI({
+    model: modelName,
+    modelKwargs: extra_flags,
+    streamUsage: true,
+  });
 }
 
 function constructOllama(
@@ -49,7 +56,7 @@ const registry: Record<string, ChatModelConstructor> = {
   fireworks: constructFireworks,
 };
 
-export function get_model_service_ctor(
+export function getModelServiceCtor(
   modelService: string,
 ): ChatModelConstructor {
   if (!(modelService in registry)) {

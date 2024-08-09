@@ -42,7 +42,7 @@ export class InvokeAgentTool extends StructuredTool {
     this.codeContext = codeContext;
   }
 
-  @instrument("Tool._call", { tool: "InvokeAgentTool" })
+  @instrument("Tool._call", { attributes: { tool: "InvokeAgentTool" } })
   async _call({ agent_name, prompt }: z.infer<typeof schema>): Promise<string> {
     currentSpan().setAttributes({
       agent_name,

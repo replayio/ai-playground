@@ -20,7 +20,7 @@ export class ReplaceInFileTool extends IOTool {
     super(codeContext);
   }
 
-  @instrument("Tool._call", { tool: "ReplaceInFileTool" })
+  @instrument("Tool._call", { attributes: { tool: "ReplaceInFileTool" } })
   async _call({
     fname,
     oldText,

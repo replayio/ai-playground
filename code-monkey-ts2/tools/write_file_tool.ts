@@ -3,6 +3,7 @@ import * as path from "path";
 import { z } from "zod";
 import { instrument, currentSpan } from "../instrumentation";
 import { IOTool } from "./io_tool";
+import { CodeContext } from "../code_context";
 
 const schema = z.object({
   fname: z.string().describe("Name of the file to edit."),
@@ -14,11 +15,11 @@ export class WriteFileTool extends IOTool {
   description = "Write content to the file of given name";
   schema = schema;
 
-  constructor(codeContext: any) {
+  constructor(codeContext: CodeContext) {
     super(codeContext);
   }
 
-  @instrument("Tool._call", { tool: "WriteFileTool" })
+  @instrument("Tool._call", { attributes: { tool: "WriteFileTool" } })
   async _call({ fname, content }: z.infer<typeof schema>): Promise<string> {
     currentSpan().setAttributes({
       fname: fname,
