@@ -4,11 +4,11 @@ import chalk from "chalk";
 
 import { Manager } from "./agents";
 import { getArtifactsDir, getRootDir, getSrcDir } from "./constants";
-import { instrument, initializeTracer } from "./instrumentation";
-import { initializeConfig } from "./config";
+import { instrument } from "./instrumentation";
 import { initDebugLogging } from "./utils/logUtil";
 import { CodeContext } from "./code_context";
 import runAgentPrompt from "./agents/runAgentPrompt";
+import { initializeCodeMonkey } from "./code-monkey";
 // TODO import { setup_logging } from "./util/logs";
 
 initDebugLogging();
@@ -41,9 +41,7 @@ class CLI {
 }
 
 if (require.main === module) {
-  initializeConfig();
-
-  initializeTracer();
+  initializeCodeMonkey();
 
   const args = process.argv.slice(2);
   const debug = args.includes("--debug");

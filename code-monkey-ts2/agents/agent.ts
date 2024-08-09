@@ -28,7 +28,12 @@ export abstract class Agent extends BaseAgent {
   };
 
   // TODO(class decorator here) @instrument("Agent.__init__", ["msn_str"])
-  constructor(name: string, systemPrompt: string, tools: StructuredTool[], codeContext?: CodeContext) {
+  constructor(
+    name: string,
+    systemPrompt: string,
+    tools: StructuredTool[],
+    codeContext?: CodeContext
+  ) {
     super(name, systemPrompt, tools, codeContext);
 
     console.log(`Agent ${name} constructor`);
@@ -52,9 +57,9 @@ export abstract class Agent extends BaseAgent {
   public readonly initialize = async (): Promise<void> => {
     await this.codeContext?.indexFiles();
     await this.handleInitialize();
-  }
+  };
 
-  protected async handleInitialize(): Promise<void> { }
+  protected async handleInitialize(): Promise<void> {}
 
   preparePrompt(prompt: string): string {
     // TODO: known_files cost several hundred tokens for a small project.
@@ -192,7 +197,11 @@ ${prompt.trim()}
     });
 
     for (const file of Array.from(modified_files)) {
-      await this.handleModifiedFile(file);
+      if (this.useCodeContext().artifactsDir) {
+        await this.handleModifiedFile(file);
+      } else {
+        console.log(`✅ Changed file "${file}"`);
+      }
     }
   }
 
@@ -202,8 +211,8 @@ ${prompt.trim()}
       agent: this.name,
       file,
     });
-    const original_file = path.join(this.useCodeContext()?.originalDir, file);
-    const modified_file = path.join(getArtifactsDir(), file);
+    const original_file = path.join(this.useCodeContext().originalDir, file);
+    const modified_file = path.join(this.useCodeContext().artifactsDir!, file);
     showDiff(original_file, modified_file);
     const response = (
       await askUser(

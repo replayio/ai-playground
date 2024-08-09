@@ -67,7 +67,7 @@ export class InvokeAgentTool extends StructuredTool {
         )}"`
       );
       return response;
-    } catch (err) {
+    } catch (err: any) {
       const error_message = `Failed to invoke agent '${agent_name}': ${
         err instanceof Error ? err.message : String(err)
       }`;

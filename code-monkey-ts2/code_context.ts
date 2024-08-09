@@ -1,4 +1,4 @@
-import * as fs from "node:fs/promises";
+import fs from "node:fs/promises";
 import * as path from "path";
 import { getArtifactsDir, getSrcDir } from "./constants";
 import { instrument } from "./instrumentation";
@@ -71,7 +71,7 @@ class CodeContext {
     const gitignoreContent = await fs.readFile(gitignorePath, "utf-8");
     const gitignorePatterns = gitignoreContent
       .split("\n")
-      .filter((l) => l.trim() !== "");
+      .filter((l: string) => l.trim() !== "");
     return gitignorePatterns.map(patternToRegExp);
   }
 
