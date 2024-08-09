@@ -1,13 +1,7 @@
-import * as fs from "fs";
+import * as fs from "node:fs/promises";
 import * as path from "path";
-import * as util from "util";
 import { getArtifactsDir, getRootDir } from "./constants";
 import { instrument } from "./instrumentation";
-
-const readFile = util.promisify(fs.readFile);
-const writeFile = util.promisify(fs.writeFile);
-const mkdir = util.promisify(fs.mkdir);
-const copyFile = util.promisify(fs.copyFile);
 
 function patternToRegExp(pattern: string): RegExp {
   return new RegExp(
@@ -31,15 +25,13 @@ class CodeContext {
 
     // Copy files if a separate aritfactsDir is provided.
     if (this.artifactsDir) {
-      if (!fs.existsSync(this.artifactsDir)) {
-        await mkdir(this.artifactsDir, { recursive: true });
-      }
+      await fs.mkdir(this.artifactsDir, { recursive: true });
 
       for (const relPath of filesToCopy) {
         const srcPath = path.join(this.rootDir, relPath);
         const destPath = path.join(this.artifactsDir, relPath);
-        await mkdir(path.dirname(destPath), { recursive: true });
-        await copyFile(srcPath, destPath);
+        await fs.mkdir(path.dirname(destPath), { recursive: true });
+        await fs.copyFile(srcPath, destPath);
       }
     }
   }
@@ -58,10 +50,19 @@ class CodeContext {
       const gitignorePath = path.join(dirPath, ".gitignore");
 
       console.debug(`checking gitignore path ${gitignorePath}`);
-      if (fs.existsSync(gitignorePath)) {
+
+      try {
+        await fs.access(gitignorePath, fs.constants.R_OK);
+
         console.debug("   found it");
-        const gitignorePatterns = ((await readFile(gitignorePath, "utf-8")).split("\n").filter((l) => l.trim() !== ""));
-        skipRegExps = skipRegExps.concat(gitignorePatterns.map(patternToRegExp));
+        const gitignorePatterns = (await fs.readFile(gitignorePath, "utf-8"))
+          .split("\n")
+          .filter((l) => l.trim() !== "");
+        skipRegExps = skipRegExps.concat(
+          gitignorePatterns.map(patternToRegExp),
+        );
+      } catch {
+        // we didn't find it.  that's fine, just continue iterating.
       }
 
       if (dirPath === rootDir) {
@@ -69,28 +70,25 @@ class CodeContext {
       }
     }
 
-    // Walk through the directory
-    const walk = (dir: string): void => {
-      const files = fs.readdirSync(dir);
+    const dirWorklist = [rootDir];
+    while (dirWorklist.length > 0) {
+      const dir = dirWorklist.pop()!; // typescript can't tell that length > 0 == pop will succeed.
+      const files = await fs.readdir(dir);
       for (const file of files) {
         const filePath = path.join(dir, file);
-        const stat = fs.statSync(filePath);
+        const stat = await fs.stat(filePath);
         const relPath = path.relative(rootDir, filePath);
-        if (
-          skipRegExps.some((regex) => regex.test(relPath))
-        ) {
+        if (skipRegExps.some((regex) => regex.test(relPath))) {
           continue;
         }
 
         if (stat.isDirectory()) {
-          walk(filePath);
+          dirWorklist.push(filePath);
         } else {
           srcFiles.push(relPath);
         }
       }
-    };
-
-    walk(rootDir);
+    }
     return srcFiles;
   }
 }
