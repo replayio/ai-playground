@@ -1,18 +1,24 @@
 {
   "dependencies": {
+    "@langchain/anthropic": "^0.2.13",
     "@langchain/community": "^0.2.24",
     "@langchain/core": "^0.2.21",
+    "@langchain/langgraph": "^0.0.33",
+    "@langchain/openai": "^0.2.6",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.52.1",
     "@opentelemetry/resources": "^1.25.1",
     "@opentelemetry/sdk-trace-node": "^1.25.1",
     "@opentelemetry/semantic-conventions": "^1.25.1",
+    "boxen": "^8.0.1",
+    "chalk": "^4.1.2",
     "commander": "^11.0.0",
     "dotenv": "^16.4.5",
     "eslint-plugin-jest": "^28.7.0",
     "ignore": "^5.3.1",
     "langchain": "^0.2.13",
     "winston": "^3.13.1",
+    "yaml": "^2.5.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
