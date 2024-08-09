@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as util from "util";
 import { getArtifactsDir, getRootDir } from "./constants";
+import { instrument } from "./instrumentation";
 
 const readFile = util.promisify(fs.readFile);
 const writeFile = util.promisify(fs.writeFile);
@@ -77,6 +78,7 @@ class CodeContext {
     public artifactsDir?: string,
   ) {}
 
+  @instrument("CodeContext.indexFiles")
   async indexFiles(): Promise<void> {
     // Get all files.
     const filesToCopy = await getAllSrcFiles(this.rootDir);
