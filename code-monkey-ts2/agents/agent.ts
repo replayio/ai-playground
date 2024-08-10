@@ -198,7 +198,7 @@ ${prompt.trim()}
         const { content } = event.data.output;
         // anthropic seems give us content as a list?
         result = Array.isArray(content) ? content[0]["text"] : content;
-        debugLog(`[AGENT ${this.name}] RESULT: ${result}`);
+        console.log(`[AGENT ${this.name}] RESULT: ${result}`);
         continue;
       }
 

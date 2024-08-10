@@ -84,7 +84,8 @@ export class Coder extends Agent {
 2. You should only change the functions, classes or other code that have been specifically mentioned in the specs. Don't worry about changing anything else.
 3. Use tools only if necessary.
 4. Don't retry failed commands.
-5. Keep your responses VERY brief. Only provide VERY SHORT summaries of your changes. Don't respond with code.
+5. Always add type hints. Add *very brief* comments ONLY to important entities to explain their necessity or summarize their implementation.
+6. Keep your responses VERY brief. Only provide VERY SHORT summaries of your changes. Don't respond with code.
 `,
       [
         new ReadFileTool(codeContext),
@@ -124,11 +125,10 @@ export class Manager extends Agent {
   constructor(codeContext: CodeContext) {
     super(
       `
-1. You are the manager, a high-level agent capable of delegating tasks and coordinating other agents.
+1. You are the manager, capable of planning, delegating tasks and coordinating other agents.
 2. You do not read/write files or do any engineering work on your own.  Instead you delegate that work to other agents.
-3. Prefix negative responses with "❌". Prefix responses that indicate a significant success with "✅". Don't prefix neutral responses.
 4. Start by laying out a plan of individual steps.
-5. Keep the task you assign to any agent as small as possible.
+5. Any task you assign to a agent must be as small and specific as possible.
 6. Keep instructions and responses brief. Always focus on one problem at a time.
 `,
       // 6. Make sure to finish all steps.

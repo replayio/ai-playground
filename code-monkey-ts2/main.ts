@@ -4,13 +4,9 @@ import chalk from "chalk";
 
 import { getArtifactsDir, getRootDir, getSrcDir } from "./constants";
 import { instrument } from "./instrumentation";
-import { initDebugLogging } from "./utils/logUtil";
 import { CodeContext } from "./code_context";
 import runAgentPrompt from "./agents/runAgentPrompt";
 import { initializeCodeMonkey, shutdownCodeMonkey } from "./code-monkey";
-// TODO import { setup_logging } from "./util/logs";
-
-initDebugLogging();
 
 let defaultCodeContext: CodeContext | null = null;
 function getDefaultCodeContext(): CodeContext {
