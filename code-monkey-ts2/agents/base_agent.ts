@@ -5,11 +5,14 @@ export type PromptResult = string;
 
 export abstract class BaseAgent {
   constructor(
-    public name: string,
     public systemPrompt: string,
     public tools: StructuredTool[],
     protected _codeContext?: CodeContext
   ) {}
+
+  get name(): string {
+    return this.constructor.name;
+  }
 
   get codeContext(): CodeContext | undefined {
     return this._codeContext;

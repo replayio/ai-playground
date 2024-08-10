@@ -17,11 +17,9 @@ import {
 import { CodeContext } from "../code_context";
 import { Agent, AgentConstructor } from "./agent";
 
-
 export class EngineeringPlanner extends Agent {
   constructor(codeContext: CodeContext) {
     super(
-      "EngineeringPlanner",
       `
 1. You are a planner agent.
 2. You are responsible for converting high-level user tasks into much smaller and more specific engineering tasks for engineers to carry out.
@@ -40,7 +38,6 @@ export class EngineeringPlanner extends Agent {
 export class Engineer extends Agent {
   constructor(codeContext: CodeContext) {
     super(
-      "Engineer",
       `
 1. You are an engineering brain.
 2. Take on one engineering task at a time. Each task should be limited to specific code locations.
@@ -60,7 +57,6 @@ export class Engineer extends Agent {
 export class CodeAnalyst extends Agent {
   constructor(codeContext: CodeContext) {
     super(
-      "CodeAnalyst",
       `
 1. You are the CodeAnalyst agent, responsible for deep code analysis and understanding.
 2. Use tools to provide comprehensive insights about the codebase.
@@ -83,13 +79,12 @@ export class CodeAnalyst extends Agent {
 export class Coder extends Agent {
   constructor(codeContext: CodeContext) {
     super(
-      "Coder",
       `
 1. You are a programming agent who implements code changes based on very clear specifications.
 2. You should only change the functions, classes or other code that have been specifically mentioned in the specs. Don't worry about changing anything else.
 3. Use tools only if necessary.
 4. Don't retry failed commands.
-5. For simpler tasks, you have the autonomy to make decisions and implement changes without consulting other agents.
+5. Keep your responses VERY brief. Only provide VERY SHORT summaries of your changes. Don't respond with code.
 `,
       [
         new ReadFileTool(codeContext),
@@ -107,7 +102,6 @@ export class Coder extends Agent {
 export class Debugger extends Agent {
   constructor(codeContext: CodeContext) {
     super(
-      "Debugger",
       `
 1. You are "Tester", an agent responsible for running tests and executing commands.
 2. Use the RunTestTool to run tests and the ExecTool to execute commands when necessary.
@@ -129,18 +123,15 @@ export class Debugger extends Agent {
 export class Manager extends Agent {
   constructor(codeContext: CodeContext) {
     super(
-      "Manager",
       `
 1. You are the manager, a high-level agent capable of delegating tasks and coordinating other agents.
 2. You do not read/write files or do any engineering work on your own.  Instead you delegate that work to other agents.
 3. Prefix negative responses with "❌". Prefix responses that indicate a significant success with "✅". Don't prefix neutral responses.
-4. Start by laying out a plan of all individual steps.
-5. Invoke one agent per step or substep. Compose very specific prompts for each agent invocation.
-7. If you have low confidence in a response or don't understand an instruction, explain why and ask the user for clarification.
-8. If the response from engineering is acceptable, relay it to the user.
-`
-// 6. Make sure to finish all steps.
-,
+4. Start by laying out a plan of individual steps.
+5. Keep the task you assign to any agent as small as possible.
+6. Keep instructions and responses brief. Always focus on one problem at a time.
+`,
+      // 6. Make sure to finish all steps.
       [
         // new InvokeAgentTool(["EngineeringPlanner"],codeContext),
         new InvokeAgentTool(["Coder"], codeContext),
@@ -151,15 +142,26 @@ export class Manager extends Agent {
   }
 }
 
-const agents = [Manager, EngineeringPlanner, CodeAnalyst, Coder, Debugger];
-const agentsByName: Record<string, AgentConstructor> = agents.reduce(
-  (acc, agent) => {
-    acc[agent.name] = agent;
-    return acc;
-  },
-  {}
-);
+const agentsByName = new Map<string, AgentConstructor>();
+registerAgents([Manager, EngineeringPlanner, CodeAnalyst, Coder, Debugger]);
+
+export function registerAgents(As: AgentConstructor[]): void {
+  As.forEach((A) => {
+    registerAgent(A);
+  });
+}
+
+export function registerAgent(A: AgentConstructor): void {
+  if (agentsByName.has(A.name)) {
+    throw new Error(`Agent already registered: ${A.name}`);
+  }
+  agentsByName.set(A.name, A);
+}
 
 export function getAgentByName(name: string): AgentConstructor {
-  return agentsByName[name];
+  const A = agentsByName.get(name);
+  if (!A) {
+    throw new Error(`Agent not found: ${name}`);
+  }
+  return A;
 }

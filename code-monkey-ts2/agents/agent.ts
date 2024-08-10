@@ -37,14 +37,13 @@ export abstract class Agent extends BaseAgent {
 
   // TODO(class decorator here) @instrument("Agent.__init__", ["msn_str"])
   constructor(
-    name: string,
     systemPrompt: string,
     tools: StructuredTool[],
     codeContext?: CodeContext
   ) {
-    super(name, systemPrompt, tools, codeContext);
+    super(systemPrompt, tools, codeContext);
 
-    console.log(`Agent ${name} constructor`);
+    const name = this.constructor.name;
     const { msn: msnStr } = getAgentConfig(name);
     this.msn = MSN.from_string(msnStr);
 
@@ -109,7 +108,8 @@ ${prompt.trim()}
     // logger.info(`Running prompt: {prompt}`);
 
     console.log(
-      `[AGENT ${this.name}] Running prompt: ${JSON.stringify(prompt)}`
+      // `[AGENT ${this.name}] Running prompt: ${JSON.stringify(prompt)}`
+      `[AGENT ${this.name}] Running prompt: ${prompt}`
     );
     const system = new SystemMessage({
       content: this.systemPrompt,
