@@ -16,6 +16,7 @@ const projectRootSignifiers = [
   "package.json",
   "pyproject.toml",
   "go.mod",
+  "Cargo.toml",
   ".git",
 ];
 
