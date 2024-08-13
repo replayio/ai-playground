@@ -10,7 +10,6 @@ import { Attributes } from "@opentelemetry/api";
 
 import { instrument, currentSpan, withKVBaggage } from "../instrumentation";
 import { getAgentConfig } from "../config";
-import { getArtifactsDir } from "../constants";
 import { MSN } from "../models";
 import { showDiff, askUser } from "../tools/utils";
 

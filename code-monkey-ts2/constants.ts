@@ -1,16 +1,11 @@
-import path from "path";
 
-export function getSrcDir(): string {
-  // presumably __dirname is absolute, but just to be consistent everywhere
-  return path.resolve(__dirname);
-}
-
-export function getRootDir(): string {
-  return path.resolve(getSrcDir(), "..");
+let artifactsDir: string = "";
+export function setArtifactsDir(dir: string): void {
+  artifactsDir = dir;
 }
 
 export function getArtifactsDir(): string {
-  return path.resolve(getRootDir(), "artifacts");
+  return artifactsDir;
 }
 
 // Claude rate limit
