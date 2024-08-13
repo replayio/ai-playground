@@ -1,6 +1,5 @@
 import fs from "node:fs/promises";
 import * as path from "path";
-import { getArtifactsDir, getSrcDir } from "./constants";
 import { instrument } from "./instrumentation";
 
 function patternToRegExp(pattern: string): RegExp {
@@ -9,7 +8,7 @@ function patternToRegExp(pattern: string): RegExp {
   );
 }
 
-class CodeContext {
+export class CodeContext {
   knownFiles: string[] = [];
   private _indexFilesPromise: Promise<void> | null = null;
   private _indexingDone = false;
@@ -135,16 +134,3 @@ class CodeContext {
     return srcFiles;
   }
 }
-
-// Main execution
-if (require.main === module) {
-  const codeContext = new CodeContext(getSrcDir(), getArtifactsDir());
-  (async (): Promise<void> => {
-    const files = await codeContext.getAllSrcFiles();
-    for (const file of files) {
-      console.log(file);
-    }
-  })();
-}
-
-export { CodeContext };

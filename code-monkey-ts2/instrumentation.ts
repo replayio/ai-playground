@@ -159,6 +159,7 @@ export function instrument<T extends (...args: any) => any>(
   return function (originalMethod: T, context: DecoratorContext) {
     if (context.kind === "method") {
       return function (...args: Parameters<T>): ReturnType<T> {
+        const methodThis = this;
         const attributes: Attributes = {};
 
         if (!options?.excludeBaggage) {
@@ -179,10 +180,10 @@ export function instrument<T extends (...args: any) => any>(
         return tracer().startActiveSpan(
           name,
           { attributes },
-          (span: Span): ReturnType<T> => {
+          function (span: Span): ReturnType<T> {
             let rv: ReturnType<T>;
             try {
-              rv = originalMethod.apply(this, args);
+              rv = originalMethod.apply(methodThis, args);
             } catch (e) {
               span.recordException(e);
               span.setStatus({
@@ -196,6 +197,7 @@ export function instrument<T extends (...args: any) => any>(
             if ((rv as any) instanceof Promise) {
               return rv.then(
                 (result: ReturnType<T>) => {
+                  span.setStatus({code: SpanStatusCode.OK});
                   span.end();
                   return result;
                 },
@@ -209,10 +211,11 @@ export function instrument<T extends (...args: any) => any>(
                   throw error;
                 },
               );
+            } else {
+              span.setStatus({code: SpanStatusCode.OK});
+              span.end();
+              return rv;
             }
-
-            span.end();
-            return rv;
           },
         );
       };
