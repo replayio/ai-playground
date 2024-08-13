@@ -16,6 +16,7 @@ function constructAnthropic(
   return new ChatAnthropic({
     model: modelName,
     streamUsage: true,
+    temperature: 0,
     clientOptions: {
       ...extra_flags, // unclear if this is clientOptions or if we should splat extra_flags into the object
     },
