@@ -152,13 +152,28 @@ type InstrumentOptions = {
   excludeBaggage?: boolean;
 };
 
-export function instrument<T extends (...args: any) => any>(
+type ValueOfPromise<T> = T extends Promise<infer U> ? U : never;
+
+function isPromise<T>(value: unknown): value is Promise<ValueOfPromise<T>> {
+  return value instanceof Promise;
+}
+
+type AnyFunction = (...args: any[]) => any;
+
+export function instrument(
   name: string,
   options?: InstrumentOptions,
 ) {
-  return function (originalMethod: T, context: DecoratorContext) {
+  return function <
+    T extends AnyFunction,
+    AT = Parameters<T>,
+    RT = ReturnType<T>
+  >(
+    originalMethod: T,
+    context: DecoratorContext,
+  ) {
     if (context.kind === "method") {
-      return function (...args: Parameters<T>): ReturnType<T> {
+      return function (this: any, ...args: Parameters<T>): ReturnType<T> {
         const methodThis = this;
         const attributes: Attributes = {};
 
@@ -177,14 +192,14 @@ export function instrument<T extends (...args: any) => any>(
           Object.assign(attributes, options.attributes);
         }
 
-        return tracer().startActiveSpan(
+        return tracer().startActiveSpan<(span: Span) => ReturnType<T>>(
           name,
           { attributes },
           function (span: Span): ReturnType<T> {
-            let rv: ReturnType<T>;
+            let result: ReturnType<T>;
             try {
-              rv = originalMethod.apply(methodThis, args);
-            } catch (e) {
+              result = originalMethod.apply(methodThis, args);
+            } catch (e: any) {
               span.recordException(e);
               span.setStatus({
                 code: SpanStatusCode.ERROR,
@@ -194,14 +209,14 @@ export function instrument<T extends (...args: any) => any>(
               throw e;
             }
 
-            if ((rv as any) instanceof Promise) {
-              return rv.then(
-                (result: ReturnType<T>) => {
+            if (isPromise<ReturnType<T>>(result)) {
+              return result.then(
+                (res: ValueOfPromise<ReturnType<T>>) => {
                   span.setStatus({code: SpanStatusCode.OK});
                   span.end();
-                  return result;
+                  return res;
                 },
-                (error: any) => {
+                (error: Error) => {
                   span.recordException(error);
                   span.setStatus({
                     code: SpanStatusCode.ERROR,
@@ -210,11 +225,11 @@ export function instrument<T extends (...args: any) => any>(
                   span.end();
                   throw error;
                 },
-              );
+              ) as ReturnType<T>;
             } else {
               span.setStatus({code: SpanStatusCode.OK});
               span.end();
-              return rv;
+              return result;
             }
           },
         );

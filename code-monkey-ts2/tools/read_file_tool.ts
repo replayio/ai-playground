@@ -27,7 +27,7 @@ export class ReadFileTool extends IOTool {
     try {
       const content = await readFileContent(filePath);
       return `${content}`;
-    } catch (error) {
+    } catch (error: any) {
       // console.error(`Failed to open file for reading: ${filePath}`);
       // console.error(error);
       return `Failed to read file: ${error?.stack || error}`;

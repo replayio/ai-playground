@@ -16,7 +16,7 @@ const schema = z.object({
 // this lets us run multiple agents with their own independent streamEvents loop.
 const TRACING_ALS_KEY = Symbol.for("ls:tracing_async_local_storage");
 function exitLangChainAsyncLocalStorage<T>(f: () => T): T {
-  const storage: AsyncLocalStorage<any> = globalThis[
+  const storage: AsyncLocalStorage<any> = (globalThis as any)[
     TRACING_ALS_KEY
   ] as AsyncLocalStorage<any>;
   if (storage) {
