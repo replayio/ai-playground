@@ -6,7 +6,7 @@ export function initPrettyLogging(): void {
   const originalDebug = console.debug;
   if (process.env.NO_DEBUG) {
     // Mute debug messages.
-    console.debug = () => {};
+    console.debug = (): void => {};
   } else {
     console.debug = (...args: any[]): void => {
       const formattedArgs = args.map((arg) =>

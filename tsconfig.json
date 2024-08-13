@@ -28,7 +28,7 @@
     "noEmit": true
   },
   "include": [
-    "code-monkey-ts2/**/*",
+    "code-monkey-ts/**/*",
     "eslint.config.js"
   ],
   "exclude": [

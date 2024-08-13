@@ -16,7 +16,7 @@ import { showDiff, askUser } from "../tools/utils";
 import { BaseAgent, PromptResult } from "./base_agent";
 import { CodeContext } from "../code_context";
 
-function debugLog(...args: any[]) {
+function debugLog(...args: any[]): void {
   console.debug(...args);
 }
 

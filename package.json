@@ -1,14 +1,14 @@
 {
   "name": "code-monkey",
   "version": "0.0.1",
-  "main": "code-monkey-ts2/main.ts",
+  "main": "code-monkey-ts/main.ts",
   "bin": {
-    "code-monkey": "code-monkey-ts2/main.ts"
+    "code-monkey": "code-monkey-ts/main.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "lint": "eslint code-monkey-ts2"
+    "lint": "eslint code-monkey-ts"
   },
   "dependencies": {
     "@langchain/anthropic": "^0.2.13",
