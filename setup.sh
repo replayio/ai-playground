@@ -14,7 +14,7 @@
 # Add check for rye installation and install if not present
 if ! command -v rye &> /dev/null; then
     echo "Rye is not installed. Installing Rye..."
-    curl -fsSL https://raw.githubusercontent.com/rye/rye/main/install.sh | bash
+    curl -sSf https://rye.astral.sh/get | bash
 else
     echo "Rye is already installed."
 fi
