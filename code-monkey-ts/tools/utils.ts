@@ -17,7 +17,7 @@ export function getFilenameWithoutExtension(filename: string): string {
 }
 
 export async function readFileContent(filePath: string): Promise<string> {
-  return await readFile(filePath, "utf-8");
+  return (await readFile(filePath, "utf-8")).toString();
 }
 
 export async function writeFileContent(

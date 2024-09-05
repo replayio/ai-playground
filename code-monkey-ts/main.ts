@@ -1,65 +1,106 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { Console } from 'console';
-import chalk from 'chalk';
-import { Coder, CodeAnalyst, Manager } from './agents/agents';
-import { setupLogging } from './util/logs';
+#!/usr/bin/env tsx
+import fs from "node:fs/promises";
+import path from "path";
+import chalk from "chalk";
+import tmp from "tmp";
+import { Command } from "commander";
 
-const console = new Console({ stdout: process.stdout, stderr: process.stderr });
+import { name, version } from "../package.json";
+import { instrument } from "./instrumentation";
+import { setArtifactsDir } from "./constants";
+import { CodeContext } from "./code_context";
+import runAgentPrompt from "./agents/runAgentPrompt";
+import { initializeCodeMonkey, shutdownCodeMonkey } from "./code-monkey";
 
-type AgentType = 'Coder' | 'CodeAnalyst' | 'Manager';
-type AgentClass = typeof Coder | typeof CodeAnalyst | typeof Manager;
+const projectRootSignifiers = [
+  "package.json",
+  "pyproject.toml",
+  "go.mod",
+  "Cargo.toml",
+  ".git",
+];
 
-async function main(debug: boolean = false): Promise<void> {
-    setupLogging(debug);
-    console.log(chalk.bold.green('Welcome to the AI Agent Selector!'));
-
-    console.log('Available agents:');
-    console.log('1. Coder');
-    console.log('2. CodeAnalyst');
-    console.log('3. Manager');
-
-    const agentChoice = 'Manager' as AgentType; // For now, we'll default to the Manager agent
-    let AgentClass: AgentClass;
-
-    switch (agentChoice) {
-        case 'Coder':
-            AgentClass = Coder;
-            break;
-        case 'CodeAnalyst':
-            AgentClass = CodeAnalyst;
-            break;
-        case 'Manager':
-            AgentClass = Manager;
-            break;
-        default:
-            const _exhaustiveCheck: never = agentChoice;
-            throw new Error(`Invalid agent choice: ${_exhaustiveCheck}`);
+export async function findProjectRoot(): Promise<string> {
+  let currentDir = process.cwd();
+  while (true) {
+    const files = await fs.readdir(currentDir);
+    if (files.some((file) => projectRootSignifiers.includes(file))) {
+      return currentDir;
     }
 
-    console.log(chalk.bold.blue(`Running ${agentChoice} agent...`));
-
-    const agent = new AgentClass(process.env.AI_MSN || '');
-    if ('initialize' in agent && typeof agent.initialize === 'function') {
-        agent.initialize();
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      throw new Error("Failed to find project root.");
     }
+
+    currentDir = parentDir;
+  }
+}
+
+type Options = {
+  debug: boolean | undefined;
+  root?: string | undefined;
+};
+
+class CLI {
+  static async run(): Promise<void> {
+    initializeCodeMonkey();
+    const program = new Command();
+
+    program
+      .name(name)
+      .version(version);
+
+    program
+      .command("run", { isDefault: true })
+      .option(
+        "-r, --root <root project directory>",
+        "specify the root of the source tree to use"
+      )
+      .option("-d, --debug", "show debug output")
+      .action(CLI.main);
+
+    program.exitOverride();
+
+    let exitStatus = 0;
+    try {
+      await program.parseAsync(process.argv);
+    } catch (e) {
+      console.error("As error occurred:", e);
+      exitStatus = 1;
+    } finally {
+      await shutdownCodeMonkey();
+      process.exit(exitStatus);
+    }
+  }
+
+  @instrument("CLI.main")
+  static async main(options: Options): Promise<void> {
+    const { Manager } = await import("./agents");
+    // TODO setup_logging(debug)
+    console.log(chalk.green.bold("Welcome to the AI Playground!"));
+    console.log(chalk.blue.bold("Running Manager agent..."));
+
+    const artifactsDir = tmp.dirSync();
+    const projectRoot = options.root ?? await findProjectRoot();
+    console.log(`Project root: ${projectRoot}`);
+    console.log(`Artifacts dir: ${artifactsDir.name}`);
+
+    setArtifactsDir(artifactsDir.name);
 
     // Read prompt from .prompt.md file
-    const promptPath = path.join(process.cwd(), '.prompt.md');
-    const prompt = fs.readFileSync(promptPath, 'utf-8');
+    const prompt = (
+      await fs.readFile(path.join(projectRoot, ".prompt.md"), {
+        encoding: "utf-8",
+      })
+    ).trim();
 
-    await agent.runPrompt(prompt);
-    console.log(chalk.bold.green('DONE'));
+    const codeContext = new CodeContext(projectRoot, artifactsDir.name);
+    await runAgentPrompt(Manager, codeContext, prompt);
+    console.log(chalk.green.bold("DONE"));
+  }
 }
 
 if (require.main === module) {
-    const args = process.argv.slice(2);
-    const debug = args.includes('--debug');
-
-    main(debug).then(() => {
-        process.exit(0);
-    }).catch((error) => {
-        console.error('An error occurred:', error);
-        process.exit(1);
-    });
+  CLI.run();
 }

@@ -62,11 +62,11 @@ line-ending = "lf"
 quote-style = "double"
 
 [tool.pyright]
-include = ["code-monkey/src/**/*.py"]
+include = ["code-monkey-py/src/**/*.py"]
 ignore = [
-    "code-monkey/src/tools/get_dependencies_tool.py",
-    "code-monkey/src/audio/**/*.py",
-    "code-monkey/src/embeddings/**/*.py"
+    "code-monkey-py/src/tools/get_dependencies_tool.py",
+    "code-monkey-py/src/audio/**/*.py",
+    "code-monkey-py/src/embeddings/**/*.py"
 ]
 
 [tool.rye.scripts]

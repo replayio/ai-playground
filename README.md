@@ -4,17 +4,20 @@
 4. [Notes](#notes)
    1. [TODO Ideas](#todo-ideas)
    2. [High-level Problems](#high-level-problems)
+   3. [Project Directories](#project-directories)
 
 
 # How to?
 
-1. Make sure you have setup the project and `rye sync`ed.
-2. Modify `.prompt.md` to provide instructions to the LLM.
+1. `npm i`
+2. Within the project dir(see [#project-directories]) you want to target, create a `.prompt.md` file to provide instructions to the LLM.
    * Example prompt:
      ```md
      Rename `AskUserTool` in `ask_user_tool.py` to `AskUserTool2`.
      ```
-3. Run `main_coder.py` or `main_manager.py` to fulfill that prompt.
+3. To start things off, either:
+   * From within that project dir, run `npx $AI_PLAYGROUND_DIR`
+   * From anywhere, run `npx $AI_PLAYGROUND_DIR -r $PROJECT_DIR`
 
 
 # Start coding for the day
@@ -73,3 +76,17 @@ The `setup.sh` script will automatically load the credentials from `.env.secret`
 * How can we make sure that the agent can learn and stops repeating rather specific types of mistakes?
   * For example, when adding a tool, it always wants to return things, and convert exceptions into return values. Terrible pattern.
   * Usually, the SYSTEM_PROMPT should help with this, but sometimes the mistakes are too context-sensitive.
+
+## Project Directories
+
+The project directory is the root directory the agents are scoped to work
+within.  You can specify any directory using the `-r`/`--root` command line
+flag.  If you leave off the flag, code-monkey will walk up the directory tree
+until it finds a file/directory that indicates the toplevel of a
+project/package.  The things it currently looks for are:
+
+1. `package.json` file.
+2. `pyproject.toml` file.
+3. `go.mod` file.
+4. `Cargo.toml` file.
+4. `.git` directory.

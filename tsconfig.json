@@ -1,13 +1,14 @@
 {
   "compilerOptions": {
-    "target": "es2015",
+    "target": "es2022",
+    "lib": ["es2022"],
     "module": "commonjs",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
+    "experimentalDecorators": false,
+//    "emitDecoratorMetadata": true,
     // Needed for decorators?
     "useDefineForClassFields": false,
     "moduleResolution": "node",
@@ -15,12 +16,25 @@
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
-      "*": ["node_modules/*"]
+      "*": [
+        "node_modules/*"
+      ]
     },
-    "types": ["jest", "node"],
+    "types": [
+      "jest",
+      "node"
+    ],
     "downlevelIteration": true,
     "noEmit": true
   },
-  "include": ["code-monkey-ts/**/*", "eslint.config.js"],
-  "exclude": ["node_modules", "dist", "jest.config.js", "artifacts"]
+  "include": [
+    "code-monkey-ts/**/*",
+    "eslint.config.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "jest.config.js",
+    "artifacts"
+  ]
 }

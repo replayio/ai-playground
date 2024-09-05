@@ -1,0 +1,42 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "editor.tabSize": 2,
+  "peacock.color": "#301162",
+  "peacock.remoteColor": "#301162",
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "**/dist/**": true,
+    "**/.ipynb_checkpoints/**": true,
+    "**/*.egg-info/**": true,
+    "**/.pytest_cache/**": true,
+    "**/__pycache__/**": true,
+    "**/.mypy_cache/**": true,
+    "**/.venv/**": true
+  },
+  "files.exclude": {
+    "**/.pytest_cache/**": true,
+    "**/.mypy_cache/**": true,
+    "**/__pycache__/**": true,
+    "**/*.egg-info/**": true
+  },
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#45198d",
+    "activityBar.background": "#45198d",
+    "activityBar.foreground": "#e7e7e7",
+    "activityBar.inactiveForeground": "#e7e7e799",
+    "activityBarBadge.background": "#a24f1d",
+    "activityBarBadge.foreground": "#e7e7e7",
+    "commandCenter.border": "#e7e7e799",
+    "sash.hoverBorder": "#45198d",
+    "statusBar.background": "#301162",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#45198d",
+    "statusBarItem.remoteBackground": "#301162",
+    "statusBarItem.remoteForeground": "#e7e7e7",
+    "titleBar.activeBackground": "#301162",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.inactiveBackground": "#30116299",
+    "titleBar.inactiveForeground": "#e7e7e799"
+  },
+  "typescript.tsdk": "node_modules/typescript/lib"
+}

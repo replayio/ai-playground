@@ -1,15 +1,41 @@
-import { trace, Span, Tracer, context } from '@opentelemetry/api';
-import { Resource } from '@opentelemetry/resources';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { BatchSpanProcessor, ConsoleSpanExporter, NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+import * as os from "node:os";
+import {
+  trace,
+  Span,
+  Tracer,
+  context as otelContext,
+  SpanStatusCode,
+  Attributes,
+  Baggage,
+  propagation,
+  BaggageEntry,
+} from "@opentelemetry/api";
+import { registerInstrumentations } from "@opentelemetry/instrumentation";
+import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
+import { Resource } from "@opentelemetry/resources";
+import {
+  SEMRESATTRS_HOST_ARCH,
+  SEMRESATTRS_OS_NAME,
+  SEMRESATTRS_OS_TYPE,
+  SEMRESATTRS_OS_VERSION,
+  SEMRESATTRS_PROCESS_RUNTIME_NAME,
+  SEMRESATTRS_PROCESS_RUNTIME_VERSION,
+  SEMRESATTRS_SERVICE_NAME,
+} from "@opentelemetry/semantic-conventions";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import {
+  BatchSpanProcessor,
+  ConsoleSpanExporter,
+  NodeTracerProvider,
+} from "@opentelemetry/sdk-trace-node";
 
+let _provider: NodeTracerProvider | null = null;
 let _tracer: Tracer | null = null;
 
 export function tracer(): Tracer {
   if (_tracer === null) {
     console.warn("WARNING: tracer not initialized. Returning NoOp tracer.");
-    _tracer = trace.getTracer('replayio.ai_playground');
+    _tracer = trace.getTracer("replayio.ai_playground");
   }
   return _tracer;
 }
@@ -19,15 +45,55 @@ export function setTracer(newTracer: Tracer): void {
 }
 
 export function currentSpan(): Span {
-  return trace.getSpan(context.active()) ?? trace.getTracer('default').startSpan('');
+  return (
+    trace.getSpan(otelContext.active()) ??
+    trace.getTracer("default").startSpan("")
+  );
+}
+
+export function currentBaggage(): Baggage | undefined {
+  return propagation.getActiveBaggage();
+}
+
+export function withKVBaggage<T extends () => any>(
+  kvs: Attributes,
+  fn: T,
+): ReturnType<T> {
+  const baggageEntries: Record<string, BaggageEntry> = {};
+  Object.entries(kvs).forEach(([key, value]) => {
+    baggageEntries[key] = { value: String(value) };
+  });
+
+  let baggage = currentBaggage();
+  if (baggage) {
+    Object.entries(baggageEntries).forEach(([key, entry]) => {
+      baggage = baggage!.setEntry(key, entry);
+    });
+  } else {
+    baggage = propagation.createBaggage(baggageEntries);
+  }
+
+  return otelContext.with(
+    propagation.setBaggage(otelContext.active(), baggage),
+    fn,
+  );
 }
 
 export function initializeTracer(attributes?: Record<string, any>): void {
-  const serviceResource = new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: "ai_playground",
+  const serviceResources = new Resource({
+    [SEMRESATTRS_SERVICE_NAME]: "ai_playground",
+    [SEMRESATTRS_HOST_ARCH]: process.arch,
+    [SEMRESATTRS_OS_TYPE]: process.platform,
+    [SEMRESATTRS_OS_NAME]: os.type(),
+    [SEMRESATTRS_OS_VERSION]: os.version(),
+    [SEMRESATTRS_PROCESS_RUNTIME_NAME]: "nodejs",
+    [SEMRESATTRS_PROCESS_RUNTIME_VERSION]: process.version,
+    ["user.username"]: os.userInfo().username,
   });
 
-  const extraResource = attributes ? new Resource(attributes) : Resource.empty();
+  const extraResource = attributes
+    ? new Resource(attributes)
+    : Resource.empty();
 
   let exporter: OTLPTraceExporter | ConsoleSpanExporter | null = null;
   const apiKey = process.env.HONEYCOMB_API_KEY;
@@ -37,77 +103,142 @@ export function initializeTracer(attributes?: Record<string, any>): void {
     exporter = new OTLPTraceExporter({
       url: otlpEndpoint,
       headers: {
-        'x-honeycomb-team': apiKey,
+        "x-honeycomb-team": apiKey,
       },
     });
   } else if (process.env.OTEL_CONSOLE_EXPORTER) {
     exporter = new ConsoleSpanExporter();
   }
 
-  const provider = new NodeTracerProvider({
-    resource: extraResource.merge(serviceResource),
+  _provider = new NodeTracerProvider({
+    resource: extraResource.merge(serviceResources),
   });
 
   if (exporter) {
     const processor = new BatchSpanProcessor(exporter);
-    provider.addSpanProcessor(processor);
+    _provider.addSpanProcessor(processor);
   }
 
-  provider.register();
+  _provider.register();
+
+  registerInstrumentations({
+    instrumentations: [new HttpInstrumentation()],
+  });
   setTracer(trace.getTracer("replayio.ai-playground"));
 }
 
+export async function shutdownTracer(): Promise<void> {
+  if (_provider) {
+    try {
+      await _provider.forceFlush();
+    } catch (e) {
+      console.error("Error flushing spans:", e);
+    }
 
-export function instrument(name: string, params?: string[], attributes?: Record<string, any>): MethodDecorator {
-  return function (
-    target: any,
-    propertyKey: string | symbol,
-    descriptor: PropertyDescriptor
-  ): PropertyDescriptor {
-    const originalMethod = descriptor.value;
-    descriptor.value = function (...args: any[]): any {
-      const spanAttributes: Record<string, any> = {};
+    try {
+      await _provider.shutdown();
+    } catch (e) {
+      console.error("Error shutting down tracer:", e);
+    }
 
-      if (params) {
-        const includeAllKwargs = params.includes('kwargs');
-        const kwargsToInclude = params
-          .filter(p => p.startsWith('kwargs.'))
-          .map(p => p.split('.')[1]);
+    // TODO(toshok) more to do here?
+    _provider = null;
+    _tracer = null;
+  }
+}
 
-        params.forEach((param, index) => {
-          if (param === 'kwargs' || param.startsWith('kwargs.')) {
-            return;
-          }
-          if (index < args.length) {
-            spanAttributes[param] = args[index];
-          }
-        });
+type InstrumentOptions = {
+  attributes?: Attributes;
+  excludeBaggage?: boolean;
+};
 
-        const kwargs = args[args.length - 1];
-        if (typeof kwargs === 'object' && kwargs !== null) {
-          if (includeAllKwargs || kwargsToInclude.length > 0) {
-            Object.entries(kwargs).forEach(([key, value]) => {
-              if (includeAllKwargs || kwargsToInclude.includes(key)) {
-                spanAttributes[`kwarg.${key}`] = value;
-              }
+type ValueOfPromise<T> = T extends Promise<infer U> ? U : never;
+
+function isPromise<T>(value: unknown): value is Promise<ValueOfPromise<T>> {
+  return value instanceof Promise;
+}
+
+type AnyFunction = (...args: any[]) => any;
+
+export function instrument(
+  name: string,
+  options?: InstrumentOptions,
+) {
+  return function <
+    T extends AnyFunction,
+    AT = Parameters<T>,
+    RT = ReturnType<T>
+  >(
+    originalMethod: T,
+    context: DecoratorContext,
+  ) {
+    if (context.kind === "method") {
+      return function (this: any, ...args: Parameters<T>): ReturnType<T> {
+        const methodThis = this;
+        const attributes: Attributes = {};
+
+        if (!options?.excludeBaggage) {
+          const parentContext = otelContext.active();
+          if (parentContext) {
+            (
+              propagation.getBaggage(parentContext)?.getAllEntries() ?? []
+            ).forEach(([key, { value }]) => {
+              attributes[key] = value;
             });
           }
         }
-      }
 
-      if (attributes) {
-        Object.assign(spanAttributes, attributes);
-      }
-
-      return tracer().startActiveSpan(name, { attributes: spanAttributes }, span => {
-        try {
-          return originalMethod.apply(this, args);
-        } finally {
-          span.end();
+        if (options?.attributes) {
+          Object.assign(attributes, options.attributes);
         }
-      });
-    };
-    return descriptor;
+
+        return tracer().startActiveSpan<(span: Span) => ReturnType<T>>(
+          name,
+          { attributes },
+          function (span: Span): ReturnType<T> {
+            let result: ReturnType<T>;
+            try {
+              result = originalMethod.apply(methodThis, args);
+            } catch (e: any) {
+              span.recordException(e);
+              span.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: e.message,
+              });
+              span.end();
+              throw e;
+            }
+
+            if (isPromise<ReturnType<T>>(result)) {
+              return result.then(
+                (res: ValueOfPromise<ReturnType<T>>) => {
+                  span.setStatus({code: SpanStatusCode.OK});
+                  span.end();
+                  return res;
+                },
+                (error: Error) => {
+                  span.recordException(error);
+                  span.setStatus({
+                    code: SpanStatusCode.ERROR,
+                    message: error.message,
+                  });
+                  span.end();
+                  throw error;
+                },
+              ) as ReturnType<T>;
+            } else {
+              span.setStatus({code: SpanStatusCode.OK});
+              span.end();
+              return result;
+            }
+          },
+        );
+      };
+    }
+
+    throw new Error(
+      `instrument decorator only supports kind='method': kind=${context.kind}`,
+    );
   };
 }
 

@@ -1,22 +1,33 @@
-import { Tool } from '@langchain/core/tools';
+import { StructuredTool } from "@langchain/core/tools";
+import { CodeContext } from "../code_context";
 
-abstract class BaseAgent {
-    tools: Tool[] | null = null;
-    SYSTEM_PROMPT = "You don't know what to do. Tell the user that they can't use you and must use an agent with a proper SYSTEM_PROMPT instead.";
+export type PromptResult = string;
 
-    get name() {
-        return this.constructor.name;
+export abstract class BaseAgent {
+  constructor(
+    public systemPrompt: string,
+    public tools: StructuredTool[],
+    protected _codeContext?: CodeContext
+  ) {}
+
+  get name(): string {
+    return this.constructor.name;
+  }
+
+  get codeContext(): CodeContext | undefined {
+    return this._codeContext;
+  }
+
+  useCodeContext(): CodeContext {
+    if (!this._codeContext) {
+      throw new Error(
+        `[Agent ${this.name}] tried to access codeContext but has none.`
+      );
     }
+    return this._codeContext;
+  }
 
-    abstract runPrompt(prompt: string): Promise<string>;
+  abstract runPrompt(prompt: string): Promise<PromptResult>;
 
-    getSystemPrompt(): string {
-        return this.SYSTEM_PROMPT;
-    }
-
-    abstract preparePrompt(prompt: string): string;
-
-    abstract handleCompletion(hadAnyText: boolean, modifiedFiles: Set<string>): void;
+  abstract preparePrompt(prompt: string): string;
 }
-
-export { BaseAgent };

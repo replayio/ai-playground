@@ -1,37 +1,36 @@
-import * as fs from 'fs';
+import * as fs from "fs";
 import { z } from "zod";
-import { tool } from "@langchain/core/tools";
-import { makeFilePath } from './utils';
-import { instrument } from '../instrumentation';
-import { notifyFileModified } from './io_tool';
+import { instrument, currentSpan } from "../instrumentation";
+import { IOTool } from "./io_tool";
+import { CodeContext } from "../code_context";
 
 const schema = z.object({
-    fname: z.string().describe("Name of the file to delete.")
+  fname: z.string().describe("Name of the file to delete."),
 });
 
-export const deleteFileTool = tool(
-    async ({ fname }: z.infer<typeof schema>) => {
-        const filePath = makeFilePath(fname);
+export class DeleteFileTool extends IOTool {
+  name = "delete_file";
+  description = "Delete a file by name";
+  schema = schema;
 
-        if (!fs.existsSync(filePath)) {
-            throw new Error(`The file ${fname} does not exist.`);
-        }
+  constructor(codeContext: CodeContext) {
+    super(codeContext);
+  }
 
-        fs.unlinkSync(filePath);
-        notifyFileModified(fname);
-        return null;
-    },
-    {
-        name: "delete_file",
-        description: "Delete a file by name",
-        schema: schema,
+  @instrument("Tool._call", { attributes: { tool: "DeleteFileTool" } })
+  async _call({ fname }: z.infer<typeof schema>): Promise<string> {
+    currentSpan().setAttributes({
+      fname,
+    });
+    try {
+      const filePath = this.codeContext.resolveFile(fname);
+      fs.unlinkSync(filePath);
+      await this.notifyFileModified(fname);
+      return "file successfully deleted";
+    } catch (error) {
+      console.error(`Failed to delete file: ${fname}`);
+      console.error(error);
+      return "failed to delete file";
     }
-);
-
-// Wrap the tool with instrumentation
-export const instrumentedDeleteFileTool = instrument(
-    deleteFileTool,
-    "Tool._run",
-    ["fname"],
-    { attributes: { tool: "DeleteFileTool" } }
-);
+  }
+}

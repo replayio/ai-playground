@@ -239,9 +239,6 @@ __pypackages__/
 #   truth for dependency management.
 *.txt
 
-# .vscode directory
-.vscode/*
-
 # Pylint
 pylint-report.txt
 pylint-output.txt
@@ -257,9 +254,6 @@ pylint-output.txt
 
 # pyright
 .pyright/
-
-# VSCode
-.vscode/
 
 # Pycharm
 .idea/
@@ -391,7 +385,6 @@ out/
 
 # IDE / Editor
 .idea/
-.vscode/
 *.swp
 *.swo
 

@@ -1,132 +1,167 @@
-import { ChatOpenAI } from "@langchain/openai";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { Tool } from "@langchain/core/tools";
-import { AgentExecutor, createToolCallingAgent } from "langchain/agents";
-import * as fs from 'fs';
-import * as path from 'path';
+import {
+  // TODO    AskUserTool,
+  CreateFileTool,
+  DeleteFileTool,
+  // TODO    ExecTool,
+  InvokeAgentTool,
+  ReadFileTool,
+  RenameFileTool,
+  ReplaceInFileTool,
+  // TODO    RunTestTool,
+  WriteFileTool,
+  // TODO    CAImportsTool,
+  // TODO    CAExportsTool,
+  // TODO    CAASTAnalyzerTool,
+  // TODO    CADependencyGraphTool,
+} from "../tools";
+import { CodeContext } from "../code_context";
+import { Agent, AgentConstructor } from "./agent";
 
-import { askUser, showDiff } from '../tools/utils';
-import { getRootDir, getArtifactsDir, getAgentMsn } from '../constants';
-import { MSN } from '../models/msn';
-import { BaseAgent } from './base_agent';
-import { currentSpan, instrument } from '../instrumentation';
-import { getLogger } from '../util/logs';
-
-class Agent extends BaseAgent {
-  private model: AgentExecutor;
-  private config: { configurable: { thread_id: string } };
-
-  constructor() {
-    super();
-    const msnStr = getAgentMsn();
-    const msn = MSN.fromString(msnStr);
-
-    const llm = msn.constructModel() as ChatOpenAI;
-    const tools = this.tools as Tool[];
-    
-    const prompt = ChatPromptTemplate.fromMessages([
-      ["system", this.getSystemPrompt()],
-      ["human", "{input}"],
-      ["placeholder", "{agent_scratchpad}"],
-    ]);
-    
-    const agent = createToolCallingAgent({
-      llm,
-      tools,
-      prompt,
-    });
-
-    this.model = new AgentExecutor({
-      agent,
-      tools,
-    });
-
-    this.config = {
-      configurable: { thread_id: "abc123" },
-    };
-
-    this.initialize();
-  }
-
-  // Custom Agent initialization goes here, when necessary.
-  @instrument("Agent.initialize", ["msn_str"])
-  initialize(): void {}
-
-  preparePrompt(prompt: string): string {
-    return prompt;
-  }
-
-  @instrument("Agent.runPrompt", ["prompt"])
-  async runPrompt(prompt: string): Promise<string> {
-    const logger = getLogger();
-    logger.info(`Running prompt: ${prompt}`);
-
-    const input = this.preparePrompt(prompt);
-
-    const modifiedFiles: Set<string> = new Set();
-    let result: string | null = null;
-
-    const response = await this.model.invoke({ input });
-
-    result = response.output;
-
-    // Assuming the agent might modify files during execution
-    // You may need to adjust this part based on how your agent actually modifies files
-    if ('intermediateSteps' in response) {
-      for (const step of response.intermediateSteps) {
-        if (step.action.tool === 'file_modified') {
-          modifiedFiles.add(step.action.toolInput as string);
-        }
-      }
-    }
-
-    this.handleCompletion(modifiedFiles);
-
-    logger.debug(`[AGENT ${this.name}] run_prompt result: "${result || ""}"`);
-    return result || "";
-  }
-
-  @instrument("Agent.handleCompletion")
-  handleCompletion(modifiedFiles: Set<string>): void {
-    const span = currentSpan();
-    span.setAttributes({
-      "num_modified_files": modifiedFiles.size,
-      "modified_files": Array.from(modifiedFiles).join(", "),
-    });
-
-    if (modifiedFiles.size > 0) {
-      for (const file of modifiedFiles) {
-        this.handleModifiedFile(file);
-      }
-    }
-  }
-
-  @instrument("Agent.handleModifiedFile", ["file"])
-  handleModifiedFile(file: string): void {
-    const originalFile = path.join(getRootDir(), file);
-    const modifiedFile = path.join(getArtifactsDir(), file);
-    showDiff(originalFile, modifiedFile);
-    const response = askUser(
-      `Do you want to apply the changes to ${file} (diff shown in VSCode)? (Y/n): `
-    ).toLowerCase();
-
-    const applyChanges = response === "y" || response === "";
-
-    currentSpan().setAttribute("apply_changes", applyChanges);
-
-    if (applyChanges) {
-      this.applyChanges(originalFile, modifiedFile);
-      console.log(`✅ Changes applied to ${file}`);
-    } else {
-      console.log(`❌ Changes not applied to ${file}`);
-    }
-  }
-
-  @instrument("Agent.applyChanges", ["originalFile", "modifiedFile"])
-  applyChanges(originalFile: string, modifiedFile: string): void {
-    const modifiedContent = fs.readFileSync(modifiedFile, 'utf8');
-    fs.writeFileSync(originalFile, modifiedContent);
+export class EngineeringPlanner extends Agent {
+  constructor(codeContext: CodeContext) {
+    super(
+      `
+1. You are a planner agent.
+2. You are responsible for converting high-level user tasks into much smaller and more specific engineering tasks for engineers to carry out.
+3. You are also responsible for communicating with the user on interface design questions, whenever there are gaps.
+4. You are always suspicious that requirements are incomplete.
+5. You always try to find proof for requirement completeness before jumping to conclusions.
+6. You are enthusiastic about working with the user on making sure that all requirements are understood and implemented.
+7. When breaking down tasks, consider grouping related changes to minimize redundant work by the Coder.
+`,
+      [new InvokeAgentTool(["Engineer"], codeContext)],
+      codeContext
+    );
   }
 }
 
-export default Agent;
+export class Engineer extends Agent {
+  constructor(codeContext: CodeContext) {
+    super(
+      `
+1. You are an engineering brain.
+2. Take on one engineering task at a time. Each task should be limited to specific code locations.
+3. Delegate the actual coding to the coder agent.
+4. Delegate testing or running of programs to a debugger agent.
+5. When you receive reports from coder and debugger agents, you determine whether your job is done or whether more work is required.
+6. Upon reviewing reports you check for task completeness. As long as there are more obvious tasks, you ask the CodeAnalyst agent to find relevant code locations, and then ask the coder to change them, and/or the debugger to test them.
+7. TODO: Implement a mechanism to subdivide engineering tasks into smaller tasks upon discovery.
+8. Provide clear and detailed instructions to the Coder agent to minimize the need for clarifications.
+`,
+      [new InvokeAgentTool(["CodeAnalyst", "Coder", "Debugger"], codeContext)],
+      codeContext
+    );
+  }
+}
+
+export class CodeAnalyst extends Agent {
+  constructor(codeContext: CodeContext) {
+    super(
+      `
+1. You are the CodeAnalyst agent, responsible for deep code analysis and understanding.
+2. Use tools to provide comprehensive insights about the codebase.
+3. Focus on identifying code locations that require changes or investigations, based on given requirements.
+4. Provide detailed context and relationships between code elements.
+5. Present your findings in a structured format that can be easily parsed and utilized by other agents.
+`,
+      [
+        new ReadFileTool(codeContext),
+        // TODO new CAImportsTool(),
+        // TODO new CAExportsTool(),
+        // TODO new CAASTAnalyzerTool(),
+        // TODO new CADependencyGraphTool()
+      ],
+      codeContext
+    );
+  }
+}
+
+export class Coder extends Agent {
+  constructor(codeContext: CodeContext) {
+    super(
+      `
+1. You are a programming agent who implements code changes based on very clear specifications.
+2. You should only change the functions, classes or other code that have been specifically mentioned in the specs. Don't worry about changing anything else.
+3. Use tools only if necessary.
+4. Don't retry failed commands.
+5. Always add type hints. Add *very brief* comments ONLY to important entities to explain their necessity or summarize their implementation.
+6. Keep your responses VERY brief. Only provide VERY SHORT summaries of your changes. Don't respond with code.
+`,
+      [
+        new ReadFileTool(codeContext),
+        new WriteFileTool(codeContext),
+        new CreateFileTool(codeContext),
+        new RenameFileTool(codeContext),
+        new DeleteFileTool(codeContext),
+        new ReplaceInFileTool(codeContext),
+      ],
+      codeContext
+    );
+  }
+}
+
+export class Debugger extends Agent {
+  constructor(codeContext: CodeContext) {
+    super(
+      `
+1. You are "Tester", an agent responsible for running tests and executing commands.
+2. Use the RunTestTool to run tests and the ExecTool to execute commands when necessary.
+3. Report test results and execution outputs clearly and concisely.
+4. If a test fails or a command execution encounters an error, provide detailed information about the failure or error.
+5. Suggest potential fixes or next steps based on test results or command outputs.
+6. Provide feedback to the Coder agent on common issues or patterns observed during testing to help improve code quality.
+`,
+      [
+        // TODO new RunTestTool(),
+        // TODO new ExecTool(),
+        new InvokeAgentTool(["Coder"], codeContext),
+      ],
+      codeContext
+    );
+  }
+}
+
+export class Manager extends Agent {
+  constructor(codeContext: CodeContext) {
+    super(
+      `
+1. You are the manager, capable of planning, delegating tasks and coordinating other agents.
+2. You do not read/write files or do any engineering work on your own.  Instead you delegate that work to other agents.
+4. Start by laying out a plan of individual steps.
+5. Any task you assign to a agent must be as small and specific as possible.
+6. Keep instructions and responses brief. Always focus on one problem at a time.
+`,
+      // 6. Make sure to finish all steps.
+      [
+        // new InvokeAgentTool(["EngineeringPlanner"],codeContext),
+        new InvokeAgentTool(["Coder"], codeContext),
+        // TODO new AskUserTool(),
+      ],
+      codeContext
+    );
+  }
+}
+
+const agentsByName = new Map<string, AgentConstructor>();
+registerAgents([Manager, EngineeringPlanner, CodeAnalyst, Coder, Debugger]);
+
+export function registerAgents(As: AgentConstructor[]): void {
+  As.forEach((A) => {
+    registerAgent(A);
+  });
+}
+
+export function registerAgent(A: AgentConstructor): void {
+  if (agentsByName.has(A.name)) {
+    throw new Error(`Agent already registered: ${A.name}`);
+  }
+  agentsByName.set(A.name, A);
+}
+
+export function getAgentByName(name: string): AgentConstructor {
+  const A = agentsByName.get(name);
+  if (!A) {
+    throw new Error(`Agent not found: ${name}`);
+  }
+  return A;
+}
